@@ -1,0 +1,37 @@
+exam:
+  title: "English and Math Practice Exam"
+  description: "A mixed exam for 10-year-old Chinese students"
+  total_questions: 4
+  time_limit_per_question: 30  # seconds
+
+questions:
+  - type: "multiple_choice"
+    id: 1
+    question: "What is 15 + 27?"
+    options:
+      - "A: 42"
+      - "B: 41"
+      - "C: 43"
+      - "D: 40"
+    correct_answer: "A"
+    explanation: "15 + 27 = 42. You can add the tens place (10 + 20 = 30) and the ones place (5 + 7 = 12), then add them together (30 + 12 = 42)."
+    time_limit: 30
+
+  - type: "read_aloud"
+    id: 2
+    question: "The cat is sleeping on the mat."
+    instruction: "Please read the following sentence aloud:"
+    time_limit: 15
+
+  - type: "quick_response"
+    id: 3
+    question: "What color is a banana?"
+    audio_instruction: "Listen to the question and answer quickly:"
+    time_limit: 15
+
+  - type: "translation"
+    id: 4
+    question: "苹果"
+    target_language: "English"
+    instruction: "Translate the following Chinese word to English:"
+    time_limit: 30
