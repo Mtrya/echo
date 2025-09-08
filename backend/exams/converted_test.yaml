@@ -1,0 +1,20 @@
+exam:
+  description: Exam converted from file with 2 questions
+  questions:
+  - correct_answer: null
+    options:
+    - '4'
+    - '5'
+    - '6'
+    - '7'
+    text: 'Q: What is 2+2?'
+    type: multiple_choice
+  - correct_answer: null
+    options:
+    - Red
+    - Blue
+    - Green
+    - Yellow
+    text: 'Question: What is your favorite color?'
+    type: multiple_choice
+  title: Converted Exam
