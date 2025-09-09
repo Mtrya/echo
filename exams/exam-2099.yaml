@@ -1,67 +1,62 @@
 exam:
   title: Comprehensive English and Math Exam 2099
-  description: A comprehensive exam covering English language skills and basic mathematics for 10-year-old Chinese students
+  description: A comprehensive exam covering English language skills and mathematics for 10-year-old Chinese students
   questions:
-    # Multiple Choice Questions (5 questions)
     - id: mc1
       type: multiple_choice
-      text: What is 15 + 27?
+      text: What is 45 × 12?
       options:
-        - 'A: 42'
-        - 'B: 41'
-        - 'C: 43'
-        - 'D: 40'
+        - 'A: 540'
+        - 'B: 520'
+        - 'C: 560'
+        - 'D: 500'
       reference_answer: A
       time_limit: 30
-      tts: What is fifteen plus twenty-seven?
+      tts: For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D.
 
     - id: mc2
       type: multiple_choice
-      text: Which sentence is correct?
+      text: A rectangle has a length of 8 cm and width of 5 cm. What is its area?
       options:
-        - 'A: She go to school yesterday'
-        - 'B: She goes to school yesterday'
-        - 'C: She went to school yesterday'
-        - 'D: She going to school yesterday'
-      reference_answer: C
+        - 'A: 13 cm²'
+        - 'B: 40 cm²'
+        - 'C: 26 cm²'
+        - 'D: 35 cm²'
+      reference_answer: B
       time_limit: 30
-      tts: Which sentence is correct?
 
     - id: mc3
       type: multiple_choice
-      text: What is the capital of France?
+      text: If 3x + 7 = 22, what is the value of x?
       options:
-        - 'A: London'
-        - 'B: Berlin'
-        - 'C: Paris'
-        - 'D: Madrid'
-      reference_answer: C
+        - 'A: 5'
+        - 'B: 6'
+        - 'C: 4'
+        - 'D: 7'
+      reference_answer: A
       time_limit: 30
-      tts: What is the capital of France?
 
     - id: mc4
       type: multiple_choice
-      text: How many sides does a triangle have?
+      text: Which sentence uses the past perfect tense correctly?
       options:
-        - 'A: 2'
-        - 'B: 3'
-        - 'C: 4'
-        - 'D: 5'
+        - 'A: She has gone to the store'
+        - 'B: She had gone to the store before I arrived'
+        - 'C: She is going to the store'
+        - 'D: She will have gone to the store'
       reference_answer: B
       time_limit: 30
-      tts: How many sides does a triangle have?
 
     - id: mc5
       type: multiple_choice
-      text: Which word means "very big"?
+      text: What is 25% of 200?
       options:
-        - 'A: tiny'
-        - 'B: small'
-        - 'C: huge'
-        - 'D: little'
-      reference_answer: C
+        - 'A: 25'
+        - 'B: 50'
+        - 'C: 75'
+        - 'D: 100'
+      reference_answer: B
       time_limit: 30
-      tts: Which word means "very big"?
 
     # Read Aloud Questions (5 questions)
     - id: ra1
@@ -69,35 +64,35 @@ exam:
       text: The quick brown fox jumps over the lazy dog
       reference_answer: The quick brown fox jumps over the lazy dog
       time_limit: 15
-      tts: Please read this sentence aloud: The quick brown fox jumps over the lazy dog
+      tts: Please read this sentence aloud
 
     - id: ra2
       type: read_aloud
       text: I enjoy playing basketball with my friends after school
       reference_answer: I enjoy playing basketball with my friends after school
       time_limit: 15
-      tts: Please read this sentence aloud: I enjoy playing basketball with my friends after school
+      tts: Please read this sentence aloud
 
     - id: ra3
       type: read_aloud
       text: Mathematics is my favorite subject in school
       reference_answer: Mathematics is my favorite subject in school
       time_limit: 15
-      tts: Please read this sentence aloud: Mathematics is my favorite subject in school
+      tts: Please read this sentence aloud
 
     - id: ra4
       type: read_aloud
       text: The weather today is sunny and warm
       reference_answer: The weather today is sunny and warm
       time_limit: 15
-      tts: Please read this sentence aloud: The weather today is sunny and warm
+      tts: Please read this sentence aloud
 
     - id: ra5
       type: read_aloud
       text: My family and I are going to the park this weekend
       reference_answer: My family and I are going to the park this weekend
       time_limit: 15
-      tts: Please read this sentence aloud: My family and I are going to the park this weekend
+      tts: Please read this sentence aloud
 
     # Quick Response Questions (5 questions)
     - id: qr1
@@ -133,35 +128,31 @@ exam:
     # Translation Questions (5 questions)
     - id: tr1
       type: translation
-      text: 我喜欢学习英语
-      reference_answer: I like to study English
+      text: 虽然数学很难，但是我认为它很有趣。
+      reference_answer: Although mathematics is difficult, I think it is very interesting.
       time_limit: 30
-      tts: Please translate this Chinese sentence to English: 我喜欢学习英语
+      tts: Please translate this Chinese sentence to English.
 
     - id: tr2
       type: translation
-      text: 今天天气很好
-      reference_answer: The weather is very nice today
+      text: 如果明天天气好的话，我们去公园玩。
+      reference_answer: If the weather is good tomorrow, we will go to the park to play.
       time_limit: 30
-      tts: Please translate this Chinese sentence to English: 今天天气很好
 
     - id: tr3
       type: translation
-      text: 我的家人有四个人
-      reference_answer: My family has four people
+      text: 我最喜欢的科目是物理，因为它让我了解世界是如何运作的。
+      reference_answer: My favorite subject is physics because it helps me understand how the world works.
       time_limit: 30
-      tts: Please translate this Chinese sentence to English: 我的家人有四个人
 
     - id: tr4
       type: translation
-      text: 我每天早上七点起床
-      reference_answer: I wake up at seven o'clock every morning
+      text: 除了学习之外，我还喜欢参加各种课外活动。
+      reference_answer: Besides studying, I also like to participate in various extracurricular activities.
       time_limit: 30
-      tts: Please translate this Chinese sentence to English: 我每天早上七点起床
 
     - id: tr5
       type: translation
-      text: 我的生日是在五月
-      reference_answer: My birthday is in May
+      text: 老师经常鼓励我们要勇于面对挑战，不要害怕失败。
+      reference_answer: Teachers often encourage us to face challenges bravely and not be afraid of failure.
       time_limit: 30
-      tts: Please translate this Chinese sentence to English: 我的生日是在五月
