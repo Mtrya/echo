@@ -1,13 +1,14 @@
 import os
-import requests
+import aiohttp
 import json
+import asyncio
 try:
     from .models import (
-        GradeRequest, GradeResponse
+        GradingInput, GradingResult
     )
 except ImportError:
     from models import (
-        GradeRequest, GradeResponse
+        GradingInput, GradingResult
     )
 
 class LLMClient:
@@ -25,25 +26,24 @@ class LLMClient:
             "Content-Type": "application/json"
         }
     
-    def grade_answer(self, request: GradeRequest) -> GradeResponse:
+    async def grade_answer(self, request: GradingInput) -> GradingResult:
         """Grade student answer based on question type"""
         if request.question_type == "multiple_choice":
-            return self._grade_multiple_choice(request)
+            return await self._grade_multiple_choice(request)
         elif request.question_type == "read_aloud":
-            return self._grade_read_aloud(request)
+            return await self._grade_read_aloud(request)
         elif request.question_type == "quick_response":
-            return self._grade_quick_response(request)
+            return await self._grade_quick_response(request)
         elif request.question_type == "translation":
-            return self._grade_translation(request)
+            return await self._grade_translation(request)
         else:
-            return GradeResponse(
+            return GradingResult(
                 score=0.0,
                 feedback="Unknown question type",
                 explanation="Unable to grade due to unknown question type",
-                is_correct=False
             )
     
-    def _grade_multiple_choice(self, request: GradeRequest) -> GradeResponse:
+    async def _grade_multiple_choice(self, request: GradingInput) -> GradingResult:
         """Multiple choice: automatic scoring, LLM provides explanation"""
         try:
             is_correct = request.student_answer.lower() == request.correct_answer.lower()
@@ -67,26 +67,24 @@ class LLMClient:
             Keep the explanation simple and suitable for a 10-year-old. Use no more than 100 words.
             """
             
-            explanation = self._call_llm(prompt)
+            explanation = await self._call_llm(prompt)
             
             feedback = "Correct! Well done!" if is_correct else f"Incorrect. The right answer is: {request.correct_answer}"
             
-            return GradeResponse(
+            return GradingResult(
                 score=score,
                 feedback=feedback,
                 explanation=explanation,
-                is_correct=is_correct
             )
             
         except Exception as e:
-            return GradeResponse(
+            return GradingResult(
                 score=score,
                 feedback="Correct! Well done!" if is_correct else f"Incorrect. The right answer is: {request.correct_answer}",
-                explanation=f"Technical issue with AI explanation. Exception: {e}",
-                is_correct=is_correct
+                explanation=f"Technical issue with AI explanation. Exception: {e}"
             )
     
-    def _grade_read_aloud(self, request: GradeRequest) -> GradeResponse:
+    async def _grade_read_aloud(self, request: GradingInput) -> GradingResult:
         """Read aloud: simple text matching, no LLM needed"""
         try:
             # Simple text matching for read aloud practice
@@ -109,22 +107,20 @@ class LLMClient:
                 feedback = f"Good attempt! You got {matches} out of {len(correct_words)} words correct."
                 explanation = "Keep practicing to improve your reading accuracy."
             
-            return GradeResponse(
+            return GradingResult(
                 score=score,
                 feedback=feedback,
                 explanation=explanation,
-                is_correct=score >= 0.8
             )
             
         except Exception as e:
-            return GradeResponse(
+            return GradingResult(
                 score=0.0,
                 feedback="Unable to process read aloud response.",
                 explanation="Technical issue with text comparison.",
-                is_correct=False
             )
     
-    def _grade_quick_response(self, request: GradeRequest) -> GradeResponse:
+    async def _grade_quick_response(self, request: GradingInput) -> GradingResult:
         """Quick response: LLM grades answer relevance"""
         try:
             prompt = f"""
@@ -166,7 +162,7 @@ class LLMClient:
             If the score is below 0.7, also include a "suggested_answer" field with an appropriate response.
             """
             
-            response_text = self._call_llm(prompt)
+            response_text = await self._call_llm(prompt)
             
             # Clean up response text - remove markdown code block formatting if present
             if response_text.startswith("```json"):
@@ -181,23 +177,21 @@ class LLMClient:
             explanation = result.get("explanation")
             suggested_answer = result.get("suggested_answer") if score < 0.7 else None
             
-            return GradeResponse(
+            return GradingResult(
                 score=score,
                 feedback=feedback,
                 explanation=explanation,
-                is_correct=score >= 0.7,
                 suggested_answer=suggested_answer
             )
             
         except Exception as e:
-            return GradeResponse(
+            return GradingResult(
                 score=0.5,
                 feedback=f"Technical issue with AI feedback. Exception: {e}",
                 explanation=f"Technical issue with AI explanation. Exception: {e}",
-                is_correct=False
             )
     
-    def _grade_translation(self, request: GradeRequest) -> GradeResponse:
+    async def _grade_translation(self, request: GradingInput) -> GradingResult:
         """Translation: LLM grades translation quality"""
         try:
             prompt = f"""
@@ -237,7 +231,7 @@ class LLMClient:
             If the score is below 0.7, also include a "good_translation" field with a better translation.
             """
             
-            response_text = self._call_llm(prompt)
+            response_text = await self._call_llm(prompt)
             
             # Clean up response text - remove markdown code block formatting if present
             if response_text.startswith("```json"):
@@ -252,24 +246,22 @@ class LLMClient:
             explanation = result.get("explanation")
             suggested_answer = result.get("good_translation") if score < 0.7 else None
             
-            return GradeResponse(
+            return GradingResult(
                 score=score,
                 feedback=feedback,
                 explanation=explanation,
-                is_correct=score >= 0.7,
                 suggested_answer=suggested_answer
             )
             
         except Exception as e:
-            return GradeResponse(
+            return GradingResult(
                 score=0.5,
                 feedback=f"Technical issue with AI feedback. Exception: {e}",
-                explanation=f"Technical issue with AI explanation. Exception: {e}",
-                is_correct=False
+                explanation=f"Technical issue with AI explanation. Exception: {e}"
             )
     
-    def _call_llm(self, prompt: str) -> str:
-        """Make a call to the LLM API using requests with streaming"""
+    async def _call_llm(self, prompt: str) -> str:
+        """Make a call to the LLM API using aiohttp with streaming"""
         try:
             print("Making API call...")
             
@@ -283,32 +275,32 @@ class LLMClient:
                 "stream": True
             }
             
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json=payload,
-                timeout=60.0,
-                stream=True
-            )
-            
-            if response.status_code == 200:
-                content = ""
-                for line in response.iter_lines():
-                    if line:
-                        line = line.decode('utf-8')
-                        if line.startswith("data: ") and line != "data: [DONE]":
-                            try:
-                                data = json.loads(line[6:])
-                                if "choices" in data and len(data["choices"]) > 0:
-                                    delta = data["choices"][0].get("delta", {})
-                                    if "content" in delta:
-                                        content += delta["content"]
-                            except json.JSONDecodeError:
-                                continue
-                return content
-            else:
-                print(f"Error response: {response.text}")
-                raise Exception(f"API returned status {response.status_code}: {response.text}")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=self.headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=60.0)
+                ) as response:
+                    
+                    if response.status == 200:
+                        content = ""
+                        async for line in response.content:
+                            line = line.decode('utf-8').strip()
+                            if line.startswith("data: ") and line != "data: [DONE]":
+                                try:
+                                    data = json.loads(line[6:])
+                                    if "choices" in data and len(data["choices"]) > 0:
+                                        delta = data["choices"][0].get("delta", {})
+                                        if "content" in delta:
+                                            content += delta["content"]
+                                except json.JSONDecodeError:
+                                    continue
+                        return content
+                    else:
+                        error_text = await response.text()
+                        print(f"Error response: {error_text}")
+                        raise Exception(f"API returned status {response.status}: {error_text}")
             
         except Exception as e:
             print(f"API call failed: {e}")
@@ -316,63 +308,5 @@ class LLMClient:
 
 
 if __name__ == "__main__":    
-    def test_llm_client():
-        print("Testing LLM Client...")
-        
-        # Initialize client
-        llm_client = LLMClient()
-        
-        # Test multiple choice
-        mc_request = GradeRequest(
-            question_id="1",
-            question_type="multiple_choice",
-            student_answer="A",
-            correct_answer="B",
-            question_text="What is 2+3?",
-            options=["A: 4", "B: 5", "C: 6", "D: 7"]
-        )
-        
-        # Test quick response
-        qr_request = GradeRequest(
-            question_id="2",
-            question_type="quick_response",
-            student_answer="I like playing basketball",
-            question_text="What do you like to do after school?"
-        )
-        
-        # Test translation
-        trans_request = GradeRequest(
-            question_id="3",
-            question_type="translation",
-            student_answer="I like to eat apples",
-            question_text="我喜欢吃香蕉"
-        )
-        
-                
-        print("Testing Multiple Choice...")
-        mc_result = llm_client.grade_answer(mc_request)
-        print(f"Score: {mc_result.score}, Feedback: {mc_result.feedback}")
-        print(f"Explanation: {mc_result.explanation}")
-        
-        print("\nTesting Quick Response...")
-        qr_result = llm_client.grade_answer(qr_request)
-        print(f"Score: {qr_result.score}, Feedback: {qr_result.feedback}")
-        print(f"Explanation: {qr_result.explanation}")
-        if qr_result.suggested_answer:
-            print(f"Suggested: {qr_result.suggested_answer}")
-        
-        print("\nTesting Translation...")
-        trans_result = llm_client.grade_answer(trans_request)
-        print(f"Score: {trans_result.score}, Feedback: {trans_result.feedback}")
-        print(f"Explanation: {trans_result.explanation}")
-        if trans_result.suggested_answer:
-            print(f"Good translation: {trans_result.suggested_answer}")
-        
-        """print("\nTesting Read Aloud...")
-        ra_result = llm_client.grade_answer(ra_request)
-        print(f"Score: {ra_result.score}, Feedback: {ra_result.feedback}")
-        print(f"Explanation: {ra_result.explanation}")"""
-    
-    # Run the test
-    test_llm_client()
+    pass
     

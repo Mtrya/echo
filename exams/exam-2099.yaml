@@ -1,0 +1,167 @@
+exam:
+  title: Comprehensive English and Math Exam 2099
+  description: A comprehensive exam covering English language skills and basic mathematics for 10-year-old Chinese students
+  questions:
+    # Multiple Choice Questions (5 questions)
+    - id: mc1
+      type: multiple_choice
+      text: What is 15 + 27?
+      options:
+        - 'A: 42'
+        - 'B: 41'
+        - 'C: 43'
+        - 'D: 40'
+      reference_answer: A
+      time_limit: 30
+      tts: What is fifteen plus twenty-seven?
+
+    - id: mc2
+      type: multiple_choice
+      text: Which sentence is correct?
+      options:
+        - 'A: She go to school yesterday'
+        - 'B: She goes to school yesterday'
+        - 'C: She went to school yesterday'
+        - 'D: She going to school yesterday'
+      reference_answer: C
+      time_limit: 30
+      tts: Which sentence is correct?
+
+    - id: mc3
+      type: multiple_choice
+      text: What is the capital of France?
+      options:
+        - 'A: London'
+        - 'B: Berlin'
+        - 'C: Paris'
+        - 'D: Madrid'
+      reference_answer: C
+      time_limit: 30
+      tts: What is the capital of France?
+
+    - id: mc4
+      type: multiple_choice
+      text: How many sides does a triangle have?
+      options:
+        - 'A: 2'
+        - 'B: 3'
+        - 'C: 4'
+        - 'D: 5'
+      reference_answer: B
+      time_limit: 30
+      tts: How many sides does a triangle have?
+
+    - id: mc5
+      type: multiple_choice
+      text: Which word means "very big"?
+      options:
+        - 'A: tiny'
+        - 'B: small'
+        - 'C: huge'
+        - 'D: little'
+      reference_answer: C
+      time_limit: 30
+      tts: Which word means "very big"?
+
+    # Read Aloud Questions (5 questions)
+    - id: ra1
+      type: read_aloud
+      text: The quick brown fox jumps over the lazy dog
+      reference_answer: The quick brown fox jumps over the lazy dog
+      time_limit: 15
+      tts: Please read this sentence aloud: The quick brown fox jumps over the lazy dog
+
+    - id: ra2
+      type: read_aloud
+      text: I enjoy playing basketball with my friends after school
+      reference_answer: I enjoy playing basketball with my friends after school
+      time_limit: 15
+      tts: Please read this sentence aloud: I enjoy playing basketball with my friends after school
+
+    - id: ra3
+      type: read_aloud
+      text: Mathematics is my favorite subject in school
+      reference_answer: Mathematics is my favorite subject in school
+      time_limit: 15
+      tts: Please read this sentence aloud: Mathematics is my favorite subject in school
+
+    - id: ra4
+      type: read_aloud
+      text: The weather today is sunny and warm
+      reference_answer: The weather today is sunny and warm
+      time_limit: 15
+      tts: Please read this sentence aloud: The weather today is sunny and warm
+
+    - id: ra5
+      type: read_aloud
+      text: My family and I are going to the park this weekend
+      reference_answer: My family and I are going to the park this weekend
+      time_limit: 15
+      tts: Please read this sentence aloud: My family and I are going to the park this weekend
+
+    # Quick Response Questions (5 questions)
+    - id: qr1
+      type: quick_response
+      text: What do you like to do in your free time?
+      time_limit: 15
+      tts: What do you like to do in your free time?
+
+    - id: qr2
+      type: quick_response
+      text: Describe your best friend
+      time_limit: 15
+      tts: Describe your best friend
+
+    - id: qr3
+      type: quick_response
+      text: What did you eat for breakfast this morning?
+      time_limit: 15
+      tts: What did you eat for breakfast this morning?
+
+    - id: qr4
+      type: quick_response
+      text: Tell me about your favorite book or movie
+      time_limit: 15
+      tts: Tell me about your favorite book or movie
+
+    - id: qr5
+      type: quick_response
+      text: What do you want to be when you grow up?
+      time_limit: 15
+      tts: What do you want to be when you grow up?
+
+    # Translation Questions (5 questions)
+    - id: tr1
+      type: translation
+      text: 我喜欢学习英语
+      reference_answer: I like to study English
+      time_limit: 30
+      tts: Please translate this Chinese sentence to English: 我喜欢学习英语
+
+    - id: tr2
+      type: translation
+      text: 今天天气很好
+      reference_answer: The weather is very nice today
+      time_limit: 30
+      tts: Please translate this Chinese sentence to English: 今天天气很好
+
+    - id: tr3
+      type: translation
+      text: 我的家人有四个人
+      reference_answer: My family has four people
+      time_limit: 30
+      tts: Please translate this Chinese sentence to English: 我的家人有四个人
+
+    - id: tr4
+      type: translation
+      text: 我每天早上七点起床
+      reference_answer: I wake up at seven o'clock every morning
+      time_limit: 30
+      tts: Please translate this Chinese sentence to English: 我每天早上七点起床
+
+    - id: tr5
+      type: translation
+      text: 我的生日是在五月
+      reference_answer: My birthday is in May
+      time_limit: 30
+      tts: Please translate this Chinese sentence to English: 我的生日是在五月

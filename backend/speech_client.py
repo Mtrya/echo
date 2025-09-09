@@ -1,11 +1,13 @@
 import os
-import requests
-import base64
-from typing import Optional
+import aiohttp
+import hashlib
+import time
+from pathlib import Path
+import asyncio
 try:
-    from .models import SpeechToTextResponse, TextToSpeechResponse, TextToSpeechRequest
+    from .models import STTOutput, STTInput, TTSOutput, TTSInput
 except ImportError:
-    from models import SpeechToTextResponse, TextToSpeechResponse, TextToSpeechRequest
+    from models import STTOutput, STTInput, TTSOutput, TTSInput
 
 class SpeechClient:
     """Client for speech-to-text and text-to-speech processing"""
@@ -16,158 +18,141 @@ class SpeechClient:
         self.base_url = "https://api.siliconflow.cn/v1"
         self.stt_model = "FunAudioLLM/SenseVoiceSmall"  # For speech-to-text
         self.tts_model = "FunAudioLLM/CosyVoice2-0.5B"  # For text-to-speech
+        self.voice_mapping = {
+            "female": "FunAudioLLM/CosyVoice2-0.5B:anna",
+            "male": "FunAudioLLM/CosyVoice2-0.5B:benjamin"
+        }
         
         if not self.api_key:
             raise ValueError("SILICONFLOW_API_KEY not found in environment variables")
         
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        # Create cache directories
+        self.cache_dir = Path("../audio_cache")
+        self.tts_cache_dir = self.cache_dir / "tts"
+        self.student_audio_dir = self.cache_dir / "student_answers"
+        self.tts_cache_dir.mkdir(parents=True, exist_ok=True)
+        self.student_audio_dir.mkdir(parents=True, exist_ok=True)
     
-    def speech_to_text(self, audio_data: bytes) -> SpeechToTextResponse:
-        """Convert speech to text using Siliconflow SenseVoiceSmall"""
-        try:
-            # Encode audio data as base64
-            audio_base64 = base64.b64encode(audio_data).decode()
-            
-            # Prepare the API request
-            payload = {
-                "model": self.stt_model,
-                "audio": audio_base64
-            }
-            
-            response = requests.post(
-                f"{self.base_url}/audio/transcriptions",
-                headers=self.headers,
-                json=payload,
-                timeout=60.0
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                
-                # Extract transcription details from response
-                transcription = result.get("text", "")
-                confidence = result.get("confidence", 0.0)
-                language = result.get("language", "en")
-                
-                return SpeechToTextResponse(
-                    transcription=transcription,
-                    confidence=confidence,
-                    language=language
-                )
-            else:
-                print(f"Speech-to-text API error: {response.status_code} - {response.text}")
-                # Fallback to mock if API fails
-                return self._mock_speech_to_text()
-            
-        except Exception as e:
-            print(f"Speech-to-text API call failed: {e}")
-            # Fallback to mock if API fails
-            return self._mock_speech_to_text()
+    def _get_tts_cache_path(self, text: str, voice: str) -> Path:
+        """Generate cache file path for TTS audio"""
+        content = f"{text}|{voice}"
+        hash_key = hashlib.md5(content.encode()).hexdigest()
+        return self.tts_cache_dir / f"{hash_key}.mp3"
     
-    def _mock_speech_to_text(self) -> SpeechToTextResponse:
-        """Mock implementation as fallback"""
-        mock_transcriptions = [
-            "The cat sat on the mat.",
-            "Hello, my name is Sarah.",
-            "Technology has revolutionized communication.",
-            "I enjoy learning new things every day.",
-            "Math is my favorite subject."
-        ]
-        
-        import random
-        transcription = random.choice(mock_transcriptions)
-        confidence = 0.85 + random.random() * 0.15
-        
-        return SpeechToTextResponse(
-            transcription=transcription,
-            confidence=confidence,
-            language="en"
-        )
-    
-    def text_to_speech(self, request: TextToSpeechRequest) -> TextToSpeechResponse:
+    def _get_student_audio_path(self, session_id: str, question_id: str) -> Path:
+        """Generate file path for student audio recording"""
+        session_dir = self.student_audio_dir / session_id
+        session_dir.mkdir(exist_ok=True)
+        timestamp = int(time.time())
+        return session_dir / f"{question_id}_{timestamp}.webm"
+
+    async def text_to_speech(self, request: TTSInput) -> TTSOutput:
         """Convert text to speech using Siliconflow CosyVoice2-0.5B"""
         try:
-            # Prepare the API request
+            print("Generating text to speech...")
+            
+            # Determine voice based on request
+            voice = self.voice_mapping.get(request.voice, "FunAudioLLM/CosyVoice2-0.5B:claire")
+            
+            # Check cache first
+            cache_file = self._get_tts_cache_path(request.text, voice)
+            if cache_file.exists():
+                print(f"Using cached audio: {cache_file}")
+                return TTSOutput(
+                    text=request.text,
+                    audio_file_path=str(cache_file)
+                )
+            
+            print("Cache miss, generating new audio...")
+            
             payload = {
                 "model": self.tts_model,
                 "input": request.text,
-                "voice": request.voice,
-                "language": request.language,
-                "speed": request.speed
+                "voice": voice
             }
             
-            response = requests.post(
-                f"{self.base_url}/audio/speech",
-                headers=self.headers,
-                json=payload,
-                timeout=60.0
-            )
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
             
-            if response.status_code == 200:
-                # The API should return audio data directly
-                audio_data = response.content
-                
-                # Calculate approximate duration
-                duration = len(request.text) * 0.1 * request.speed
-                
-                # Encode audio data as base64 for storage/transmission
-                audio_base64 = base64.b64encode(audio_data).decode()
-                
-                return TextToSpeechResponse(
-                    audio_data=audio_base64,
-                    duration=duration,
-                    text=request.text
-                )
-            else:
-                print(f"Text-to-speech API error: {response.status_code} - {response.text}")
-                # Fallback to mock if API fails
-                return self._mock_text_to_speech(request)
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/audio/speech",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=60.0)
+                ) as response:
+                    
+                    if response.status == 200:
+                        # Get the audio data
+                        audio_data = await response.read()
+                        
+                        # Cache the audio file
+                        with open(cache_file, 'wb') as f:
+                            f.write(audio_data)
+                        
+                        print(f"Cached new audio: {cache_file}")
+                        
+                        return TTSOutput(
+                            text=request.text,
+                            audio_file_path=str(cache_file)
+                        )
+                    else:
+                        error_text = await response.text()
+                        print(f"Error response: {error_text}")
+                        raise Exception(f"API returned status {response.status}: {error_text}")
             
         except Exception as e:
-            print(f"Text-to-speech API call failed: {e}")
-            # Fallback to mock if API fails
-            return self._mock_text_to_speech(request)
-    
-    def _mock_text_to_speech(self, request: TextToSpeechRequest) -> TextToSpeechResponse:
-        """Mock implementation as fallback"""
-        duration = len(request.text) * 0.1 * request.speed
-        
-        # Generate mock base64 audio data
-        mock_audio_data = base64.b64encode(b"mock_audio_data").decode()
-        
-        return TextToSpeechResponse(
-            audio_data=mock_audio_data,
-            duration=duration,
-            text=request.text
-        )
+            print(f"Text to speech failed: {e}")
+            raise
+
+    async def speech_to_text(self, request: STTInput) -> STTOutput:
+        """Convert speech to text using Siliconflow SenseVoiceSmall"""
+        try:
+            print("Processing speech to text...")
+            
+            # Save audio data to temporary file
+            audio_file_path = self._get_student_audio_path(request.session_id, request.question_id)
+            with open(audio_file_path, 'wb') as f:
+                f.write(request.audio_data)
+            
+            print(f"Saved student audio to: {audio_file_path}")
+            
+            # Prepare the multipart form data
+            data = aiohttp.FormData()
+            data.add_field('model', self.stt_model)
+            data.add_field('file', open(audio_file_path, 'rb'))
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_key}"
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url}/audio/transcriptions",
+                    headers=headers,
+                    data=data,
+                    timeout=aiohttp.ClientTimeout(total=60.0)
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        text = result.get("text", "")
+                        
+                        return STTOutput(
+                            text=text,
+                            audio_file_path=str(audio_file_path)
+                        )
+                    else:
+                        error_text = await response.text()
+                        print(f"Error response: {error_text}")
+                        raise Exception(f"API returned status {response.status}: {error_text}")
+            
+        except Exception as e:
+            print(f"Speech to text failed: {e}")
+            raise
+
 
 if __name__ == "__main__":
-    # Test the SpeechClient
-    print("Testing Speech Client...")
-    
-    speech_client = SpeechClient()
-    
-    # Test speech-to-text
-    print("\nTesting speech-to-text...")
-    mock_audio = b"mock_audio_data"
-    stt_result = speech_client.speech_to_text(mock_audio)
-    print(f"Transcription: {stt_result.transcription}")
-    print(f"Confidence: {stt_result.confidence}")
-    print(f"Language: {stt_result.language}")
-    
-    # Test text-to-speech
-    print("\nTesting text-to-speech...")
-    tts_request = TextToSpeechRequest(
-        text="Hello, this is a test.",
-        voice="female",
-        language="en"
-    )
-    tts_result = speech_client.text_to_speech(tts_request)
-    print(f"Audio data length: {len(tts_result.audio_data)}")
-    print(f"Duration: {tts_result.duration}")
-    print(f"Text: {tts_result.text}")
-    
-    print("\nSpeech Client tests completed!")
+    pass

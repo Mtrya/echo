@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 
 # Core Models
 class Question(BaseModel):
@@ -7,95 +8,82 @@ class Question(BaseModel):
     type: str  # "multiple_choice", "read_aloud", "quick_response", "translation"
     text: str
     options: Optional[List[str]] = None
-    correct_answer: Optional[str] = None
+    reference_answer: Optional[str] = None
     time_limit: int = 30
-    difficulty: str = "medium"
+    tts: Optional[str] = None  # Text to convert to speech for audio questions
 
 class Exam(BaseModel):
     title: str
     description: str
     questions: List[Question]
-    total_questions: int
 
-# API Request/Response Models
-class GradeRequest(BaseModel):
-    question_id: str
+# API Processing Models
+class GradingInput(BaseModel):
     question_type: str  # "multiple_choice", "read_aloud", "quick_response", "translation"
     student_answer: str
     correct_answer: Optional[str] = None
     question_text: str
     options: Optional[List[str]] = None # ["A:6","B:7","C:8","D:9"], for multiple choice
 
-class GradeResponse(BaseModel):
+class GradingResult(BaseModel):
     score: float
     feedback: str
     explanation: str
-    is_correct: bool
     suggested_answer: Optional[str] = None  # For quick response and translation questions
 
 # Speech Processing Models
-class SpeechToTextResponse(BaseModel):
-    transcription: str
-    confidence: float
-    language: str
-
-class TextToSpeechRequest(BaseModel):
+class TTSInput(BaseModel):
     text: str
-    voice: str = "female"
-    language: str = "en"
-    speed: float = 1.0
+    voice: str = "female" # female -> claire; male -> charles
 
-class TextToSpeechResponse(BaseModel):
-    audio_data: str  # base64 encoded audio
-    duration: float
+class TTSOutput(BaseModel):
     text: str
+    audio_file_path: str  # path to saved audio file (.mp3)
 
-class SpeechToTextRequest(BaseModel):
-    audio_data: str  # base64 encoded audio
-    language: str = "en"
+class STTInput(BaseModel):
+    audio_data: bytes # direct binary data
+    session_id: str
+    question_id: str
 
-class SpeechToTextResponse(BaseModel):
-    transcription: str
-    confidence: float
-    language: str
-
-class TextToSpeechRequest(BaseModel):
+class STTOutput(BaseModel):
     text: str
-    voice: str = "female"
-    language: str = "en"
-    speed: float = 1.0
-
-class TextToSpeechResponse(BaseModel):
-    audio_data: str  # base64 encoded audio
-    duration: float
-    text: str
+    audio_file_path: str # path to saved audio file (.webm)
 
 # Session Management Models
 class SessionStartRequest(BaseModel):
-    exam_filename: str
-    student_name: Optional[str] = "Student"
+    exam_file_path: str
 
 class SessionResponse(BaseModel):
     session_id: str
     exam_title: str
     total_questions: int
-    started_at: str
+    message: str
+
+class QuestionResponse(BaseModel):
+    question: Question
+    audio_file_path: Optional[str] = None
+    question_index: int
+    is_last: bool
 
 class AnswerSubmission(BaseModel):
-    question_id: str
-    student_answer: str
-    score: float
-    feedback: str
-    time_taken: Optional[int] = None
+    answer_text: Optional[str] = None
+    audio_data: Optional[bytes] = None
 
-class SessionResults(BaseModel):
+class AnswerResponse(BaseModel):
+    message: str
+    question_index: int
+    processing: bool
+
+class FinalResult(BaseModel):
     session_id: str
-    student_name: str
+    exam_title: str
     total_score: float
-    total_questions: int
+    max_score: float
     percentage: float
-    answers: List[AnswerSubmission]
-    completed_at: str
+    question_results: List[dict]
+    start_time: datetime
+    end_time: datetime
+    duration_seconds: int
 
 # File Conversion Models
 class DocxConversionRequest(BaseModel):
