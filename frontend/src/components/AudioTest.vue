@@ -19,8 +19,12 @@
     </button>
     
     <!-- Start Exam Button -->
-    <button @click="startExam" class="btn btn-primary">
-      Start Exam
+    <button
+      @click="startExam"
+      class="btn btn-primary"
+      :disabled="!canStartExam()"
+    >
+      {{ getStartButtonText() }}
     </button>
     
     <!-- Audio elements (hidden) -->
@@ -60,6 +64,8 @@ export default {
     // Initialize audio context on component mount
     onMounted(async () => {
       await initializeAudio()
+      // Start checking session status
+      checkSessionStatus()
     })
 
     // Initialize audio permissions and setup
@@ -168,6 +174,36 @@ export default {
       }
     }
 
+    // Audio generation status
+    const audioGenerationStatus = ref('unknown') // 'unknown', 'generating', 'completed'
+    const isCheckingStatus = ref(false)
+
+    // Check session status (unified endpoint)
+    const checkSessionStatus = async () => {
+      if (isCheckingStatus.value) return
+
+      try {
+        isCheckingStatus.value = true
+        const response = await fetch(`/session/${props.sessionId}/status`)
+        const data = await response.json()
+
+        if (data.audio_generation === 'completed') {
+          audioGenerationStatus.value = 'completed'
+        } else if (data.audio_generation === 'generating') {
+          audioGenerationStatus.value = 'generating'
+          // Continue checking after a delay
+          setTimeout(checkSessionStatus, 2000)
+        } else {
+          audioGenerationStatus.value = 'unknown'
+        }
+      } catch (error) {
+        console.error('Failed to check session status:', error)
+        audioGenerationStatus.value = 'unknown'
+      } finally {
+        isCheckingStatus.value = false
+      }
+    }
+
     // Start the exam (navigate to first question)
     const startExam = () => {
       console.log('AudioTest: Starting exam, emitting complete event')
@@ -177,6 +213,19 @@ export default {
       })
     }
 
+    // Check if start button should be enabled
+    const canStartExam = () => {
+      return audioGenerationStatus.value === 'completed' || audioGenerationStatus.value === 'unknown'
+    }
+
+    // Get start button text
+    const getStartButtonText = () => {
+      if (audioGenerationStatus.value === 'generating') {
+        return 'Generating Audio... Please Wait'
+      }
+      return 'Start Exam'
+    }
+
     return {
       testAudioPlayer,
       recordedAudioPlayer,
@@ -184,10 +233,13 @@ export default {
       isRecording,
       isPlayingRecording,
       recordedAudio,
+      audioGenerationStatus,
       playTestAudio,
       toggleRecording,
       playRecordedAudio,
-      startExam
+      startExam,
+      canStartExam,
+      getStartButtonText
     }
   }
 }

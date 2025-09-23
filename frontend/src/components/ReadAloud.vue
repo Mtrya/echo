@@ -6,7 +6,20 @@
         {{ currentQuestion.text }}
       </div>
       <div class="status-text">
-        {{ audioStatus }}
+        Get ready to read...
+      </div>
+    </div>
+
+    <!-- Thinking Phase -->
+    <div v-else-if="phase === 'thinking'" class="thinking-phase">
+      <div class="instruction-text">
+        {{ currentQuestion.text }}
+      </div>
+      <div class="thinking-text">
+        Get ready...
+      </div>
+      <div class="countdown-text">
+        {{ countdownText }}
       </div>
     </div>
 
@@ -26,14 +39,11 @@
         @click="stopRecording"
         class="btn btn-stop"
       >
-        Stop Recording
+        Stop Recording and Submit Immediately
       </button>
     </div>
 
-    
-    <!-- Hidden audio player for instruction audio -->
-    <audio ref="audioPlayer" hidden></audio>
-  </div>
+    </div>
 </template>
 
 <script>
@@ -54,19 +64,18 @@ export default {
   emits: ['complete'],
   setup(props, { emit }) {
     // Phase management
-    const phase = ref('display') // 'display', 'recording'
+    const phase = ref('display') // 'display', 'thinking', 'recording'
 
-    // Timer and audio
+    // Timer
     const timeRemaining = ref(0)
-    const audioPlayer = ref(null)
-    const audioStatus = ref('Preparing...')
+    const countdownText = ref('3')
 
     // Media recorder and audio stream
     let mediaRecorder = null
     let audioChunks = []
     let audioStream = null
     let recordingTimer = null
-    let displayTimer = null
+    let thinkingTimer = null
 
     // Initialize on component mount
     onMounted(async () => {
@@ -99,7 +108,7 @@ export default {
       // Reset all reactive state
       phase.value = 'display'
       timeRemaining.value = 0
-      audioStatus.value = 'Preparing...'
+      countdownText.value = '3'
 
       // Reset audio chunks
       audioChunks = []
@@ -113,8 +122,8 @@ export default {
         // Initialize audio recording permissions
         await initializeAudio()
 
-        // Start display phase
-        await startDisplayPhase()
+        // Start thinking phase first
+        startThinkingPhase()
 
       } catch (error) {
         console.error('Failed to initialize question:', error)
@@ -145,45 +154,22 @@ export default {
       }
     }
 
-    // Start display phase
-    const startDisplayPhase = async () => {
-      phase.value = 'display'
+    // Start thinking phase
+    const startThinkingPhase = () => {
+      phase.value = 'thinking'
+      let countdown = 3
 
-      if (props.currentQuestion.audio_file_path) {
-        // Play instruction audio
-        audioStatus.value = 'Playing instructions...'
-        await playInstructionAudio()
-      } else {
-        // No audio file, wait 3 seconds
-        audioStatus.value = 'Get ready to read...'
-        await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 3000)
-        })
-      }
+      // Start countdown timer
+      thinkingTimer = setInterval(() => {
+        countdown--
+        countdownText.value = countdown.toString()
 
-      // Start recording phase
-      startRecordingPhase()
-    }
-
-    // Play instruction audio
-    const playInstructionAudio = async () => {
-      try {
-        if (audioPlayer.value) {
-          audioPlayer.value.src = props.currentQuestion.audio_file_path
-
-          return new Promise((resolve, reject) => {
-            audioPlayer.value.onended = resolve
-            audioPlayer.value.onerror = reject
-            audioPlayer.value.play().catch(reject)
-          })
+        if (countdown <= 0) {
+          clearInterval(thinkingTimer)
+          thinkingTimer = null
+          startRecordingPhase()
         }
-      } catch (error) {
-        console.error('Failed to play instruction audio:', error)
-        // Continue with 3-second fallback
-        await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 3000)
-        })
-      }
+      }, 1000)
     }
 
     // Start recording phase
@@ -293,30 +279,21 @@ export default {
 
     // Cleanup resources
     const cleanup = () => {
+      if (thinkingTimer) {
+        clearInterval(thinkingTimer)
+        thinkingTimer = null
+      }
+
       if (recordingTimer) {
         clearInterval(recordingTimer)
         recordingTimer = null
-      }
-
-      if (displayTimer) {
-        clearTimeout(displayTimer)
-        displayTimer = null
-      }
-
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop()
-      }
-
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop())
       }
     }
 
     return {
       phase,
       timeRemaining,
-      audioPlayer,
-      audioStatus,
+      countdownText,
       stopRecording
     }
   }
@@ -355,6 +332,29 @@ export default {
   font-size: 1.2rem;
   color: #16a34a;
   font-weight: 600;
+}
+
+/* Thinking Phase */
+.thinking-phase {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.thinking-text {
+  font-size: 1.6rem;
+  color: #374151;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.countdown-text {
+  font-size: 3rem;
+  color: #16a34a;
+  font-weight: 700;
+  animation: countdown-pulse 1s infinite;
 }
 
 /* Recording Phase */
@@ -444,5 +444,10 @@ export default {
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 </style>

@@ -1,17 +1,7 @@
 <template>
   <div class="multiple-choice">
-    <!-- Instruction Phase -->
-    <div v-if="phase === 'instruction'" class="instruction-phase">
-      <div class="instruction-text">
-        For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D.
-      </div>
-      <div class="status-text">
-        {{ audioStatus }}
-      </div>
-    </div>
-
     <!-- Question Phase -->
-    <div v-else-if="phase === 'question'" class="question-phase">
+    <div class="question-phase">
       <div class="question-text">
         {{ currentQuestion.text }}
       </div>
@@ -42,12 +32,12 @@
         class="btn btn-submit"
         :disabled="!selectedOption"
       >
-        Submit Answer
+        Submit Answer Immediately
       </button>
     </div>
 
     <!-- Auto-submit Phase -->
-    <div v-else-if="phase === 'auto-submit'" class="auto-submit-phase">
+    <div v-if="phase === 'auto-submit'" class="auto-submit-phase">
       <div class="question-text">
         {{ currentQuestion.text }}
       </div>
@@ -67,9 +57,6 @@
         Time's up! Submitting your answer...
       </div>
     </div>
-
-    <!-- Hidden audio player for instruction audio -->
-    <audio ref="audioPlayer" hidden></audio>
   </div>
 </template>
 
@@ -91,17 +78,14 @@ export default {
   emits: ['complete'],
   setup(props, { emit }) {
     // Phase management
-    const phase = ref('instruction') // 'instruction', 'question', 'auto-submit'
+    const phase = ref('question') // 'question', 'auto-submit'
 
     // Timer and selection
     const timeRemaining = ref(0)
     const selectedOption = ref(null)
-    const audioPlayer = ref(null)
-    const audioStatus = ref('Preparing...')
 
     // Timer reference
     let questionTimer = null
-    let displayTimer = null
 
     // Initialize on component mount
     onMounted(async () => {
@@ -116,56 +100,15 @@ export default {
     // Initialize the question flow
     const initializeQuestion = async () => {
       try {
-        // Start instruction phase
-        await startInstructionPhase()
+        // Start question phase directly
+        startQuestionPhase()
       } catch (error) {
         console.error('Failed to initialize question:', error)
-        // Skip to question phase if instruction fails
         startQuestionPhase()
       }
     }
 
-    // Start instruction phase
-    const startInstructionPhase = async () => {
-      phase.value = 'instruction'
-
-      if (props.currentQuestion.audio_file_path) {
-        // Play instruction audio
-        audioStatus.value = 'Playing instructions...'
-        await playInstructionAudio()
-      } else {
-        // No audio file, wait 3 seconds
-        audioStatus.value = 'Get ready to answer...'
-        await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 3000)
-        })
-      }
-
-      // Start question phase
-      startQuestionPhase()
-    }
-
-    // Play instruction audio
-    const playInstructionAudio = async () => {
-      try {
-        if (audioPlayer.value) {
-          audioPlayer.value.src = props.currentQuestion.audio_file_path
-
-          return new Promise((resolve, reject) => {
-            audioPlayer.value.onended = resolve
-            audioPlayer.value.onerror = reject
-            audioPlayer.value.play().catch(reject)
-          })
-        }
-      } catch (error) {
-        console.error('Failed to play instruction audio:', error)
-        // Continue with 3-second fallback
-        await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 3000)
-        })
-      }
-    }
-
+    
     // Start question phase
     const startQuestionPhase = () => {
       phase.value = 'question'
@@ -252,19 +195,12 @@ export default {
         clearInterval(questionTimer)
         questionTimer = null
       }
-
-      if (displayTimer) {
-        clearTimeout(displayTimer)
-        displayTimer = null
-      }
     }
 
     return {
       phase,
       timeRemaining,
       selectedOption,
-      audioPlayer,
-      audioStatus,
       selectOption,
       submitAnswer
     }
@@ -280,31 +216,6 @@ export default {
   padding: 2rem;
 }
 
-/* Instruction Phase */
-.instruction-phase {
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-.instruction-text {
-  font-size: 1.6rem;
-  color: #374151;
-  margin-bottom: 2rem;
-  line-height: 1.6;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.status-text {
-  font-size: 1.2rem;
-  color: #16a34a;
-  font-weight: 600;
-}
 
 /* Question Phase */
 .question-phase {

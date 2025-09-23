@@ -6,7 +6,7 @@
         {{ currentQuestion.text }}
       </div>
       <div class="status-text">
-        {{ audioStatus }}
+        Get ready to translate...
       </div>
     </div>
 
@@ -42,7 +42,7 @@
         @click="stopRecording"
         class="btn btn-stop"
       >
-        Stop Recording
+        Stop Recording and Submit Immediately
       </button>
     </div>
 
@@ -56,9 +56,7 @@
       </div>
     </div>
 
-    <!-- Hidden audio player for instruction audio -->
-    <audio ref="audioPlayer" hidden></audio>
-  </div>
+    </div>
 </template>
 
 <script>
@@ -81,10 +79,8 @@ export default {
     // Phase management
     const phase = ref('display') // 'display', 'thinking', 'recording', 'auto-submit'
 
-    // Timer and audio
+    // Timer
     const timeRemaining = ref(0)
-    const audioPlayer = ref(null)
-    const audioStatus = ref('Preparing...')
     const countdownText = ref('3')
 
     // Media recorder and audio stream
@@ -95,7 +91,6 @@ export default {
     // Timer references
     let thinkingTimer = null
     let recordingTimer = null
-    let displayTimer = null
 
     // Initialize on component mount
     onMounted(async () => {
@@ -128,7 +123,6 @@ export default {
       // Reset all reactive state
       phase.value = 'display'
       timeRemaining.value = 0
-      audioStatus.value = 'Preparing...'
       countdownText.value = '3'
 
       // Reset audio chunks
@@ -143,8 +137,8 @@ export default {
         // Initialize audio recording permissions
         await initializeAudio()
 
-        // Start display phase
-        await startDisplayPhase()
+        // Start thinking phase directly
+        startThinkingPhase()
 
       } catch (error) {
         console.error('Failed to initialize question:', error)
@@ -175,46 +169,6 @@ export default {
       }
     }
 
-    // Start display phase
-    const startDisplayPhase = async () => {
-      phase.value = 'display'
-
-      if (props.currentQuestion.audio_file_path) {
-        // Play instruction audio
-        audioStatus.value = 'Playing instructions...'
-        await playInstructionAudio()
-      } else {
-        // No audio file, wait 5 seconds
-        audioStatus.value = 'Get ready to translate...'
-        await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 5000)
-        })
-      }
-
-      // Start thinking phase
-      startThinkingPhase()
-    }
-
-    // Play instruction audio
-    const playInstructionAudio = async () => {
-      try {
-        if (audioPlayer.value) {
-          audioPlayer.value.src = props.currentQuestion.audio_file_path
-
-          return new Promise((resolve, reject) => {
-            audioPlayer.value.onended = resolve
-            audioPlayer.value.onerror = reject
-            audioPlayer.value.play().catch(reject)
-          })
-        }
-      } catch (error) {
-        console.error('Failed to play instruction audio:', error)
-        // Continue with 5-second fallback
-        await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 5000)
-        })
-      }
-    }
 
     // Start thinking phase
     const startThinkingPhase = () => {
@@ -365,11 +319,6 @@ export default {
         recordingTimer = null
       }
 
-      if (displayTimer) {
-        clearTimeout(displayTimer)
-        displayTimer = null
-      }
-
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop()
       }
@@ -382,8 +331,6 @@ export default {
     return {
       phase,
       timeRemaining,
-      audioPlayer,
-      audioStatus,
       countdownText,
       stopRecording
     }

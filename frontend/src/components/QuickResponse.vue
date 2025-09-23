@@ -38,7 +38,7 @@
         @click="stopRecording"
         class="btn btn-stop"
       >
-        Stop Recording
+        Stop Recording and Submit Immediately
       </button>
     </div>
 
