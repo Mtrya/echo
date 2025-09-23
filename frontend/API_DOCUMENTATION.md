@@ -128,6 +128,7 @@ Get the current status of a session (audio generation and STT/LLM processing).
 ```
 
 **Status Values:**
+
 - `audio_generation`: "generating" | "completed"
 - `processing`: "idle" | "processing"
 

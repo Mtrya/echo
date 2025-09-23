@@ -5,19 +5,19 @@ exam:
   section_instructions:
     read_aloud:
       text: "For read aloud questions, you should read displayed English sentences aloud."
-      tts: "For read aloud questions, you should read displayed English sentences aloud."
+      tts: "For read aloud questions, you should read displayed English sentences aloud"
 
     multiple_choice:
-      text: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D."
-      tts: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D."
+      text: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C or D."
+      tts: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C or D"
 
     quick_response:
       text: "For quick response questions, you will hear a question and respond by speaking. Listen carefully and answer clearly."
-      tts: "For quick response questions, you will hear a question and respond by speaking. Listen carefully and answer clearly."
+      tts: "For quick response questions, you will hear a question and respond by speaking. Listen carefully and answer clearly"
 
     translation:
-      text: "For translation questions, translate the Chinese sentences to English and respond by speaking."
-      tts: "For translation questions, translate the Chinese sentences to English and respond by speaking."
+      text: "For translation questions, you will see a Chinese sentence and speak the English translation."
+      tts: "For translation questions, you will see a Chinese sentence and speak the English translation"
 
   questions:
     # Read Aloud Questions (5 questions)
