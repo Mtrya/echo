@@ -14,16 +14,26 @@
       </div>
 
       <div class="results-details">
-        <div class="placeholder-message">
-          <h3>📊 Detailed Results Coming Soon</h3>
-          <p>This page will show:</p>
-          <ul>
-            <li>✓ Your overall score and percentage</li>
-            <li>✓ Each question with your answer</li>
-            <li>✓ Correct answers and explanations</li>
-            <li>✓ Feedback for improvement</li>
-            <li>✓ Time spent on each question</li>
-          </ul>
+        <!-- Show processing status -->
+        <div v-if="processingStatus === 'processing'" class="processing-message">
+          <h3>⏳ Processing Your Answers</h3>
+          <p>We're analyzing your responses and calculating your scores...</p>
+          <div class="loading-indicator">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+          </div>
+        </div>
+
+        <!-- Debug: Show raw API response -->
+        <div v-else-if="resultsData" class="debug-results">
+          <h3>🔧 Debug: API Response</h3>
+          <pre>{{ JSON.stringify(resultsData, null, 2) }}</pre>
+        </div>
+
+        <div v-else class="placeholder-message">
+          <h3>📊 {{ processingStatus === 'unknown' ? 'Connecting to Server...' : 'Loading Results...' }}</h3>
+          <p>{{ processingStatus === 'unknown' ? 'Establishing connection to backend...' : 'Finalizing your exam results...' }}</p>
         </div>
       </div>
 
@@ -55,26 +65,71 @@ export default {
     const totalQuestions = ref(null)
     const percentage = ref(null)
     const resultsData = ref(null)
+    const processingStatus = ref('unknown') // 'unknown', 'processing', 'idle'
+    const isCheckingStatus = ref(false)
 
-    // Load results when component mounts
+    // Start checking status when component mounts
     onMounted(async () => {
-      await loadResults()
+      await checkSessionStatus()
     })
 
-    // Load results from backend
+    // Check session status (polling)
+    const checkSessionStatus = async () => {
+      if (isCheckingStatus.value) return
+
+      try {
+        isCheckingStatus.value = true
+        console.log('Checking session status for:', props.sessionId)
+        const response = await fetch(`/session/${props.sessionId}/status`)
+        const data = await response.json()
+
+        console.log('Session status:', data)
+
+        if (data.processing === 'idle') {
+          // Processing is complete, load results
+          processingStatus.value = 'idle'
+          await loadResults()
+        } else {
+          // Still processing or unknown status, check again after 2 seconds
+          processingStatus.value = data.processing || 'unknown'
+          setTimeout(checkSessionStatus, 2000)
+        }
+      } catch (error) {
+        console.error('Failed to check session status:', error)
+        processingStatus.value = 'unknown'
+        setTimeout(checkSessionStatus, 2000)
+      } finally {
+        isCheckingStatus.value = false
+      }
+    }
+
+    // Load results from backend (only called when processing is complete)
     const loadResults = async () => {
       try {
+        console.log('Loading results for session:', props.sessionId)
         const response = await fetch(`/session/${props.sessionId}/results`)
+        console.log('Response status:', response.status)
+
         if (response.ok) {
           const data = await response.json()
+          console.log('Results loaded:', data)
           resultsData.value = data
           score.value = data.total_score
           totalQuestions.value = data.max_score
           percentage.value = data.percentage
-          console.log('Results loaded:', data)
         } else {
-          console.error('Failed to load results:', response.status)
-          // Use placeholder data if backend fails
+          const errorText = await response.text()
+          console.error('Failed to load results:', response.status, errorText)
+
+          // If exam is not completed, go back to checking status
+          if (response.status === 400 && errorText.includes('Exam not completed')) {
+            console.log('Exam not completed yet, resuming status check...')
+            processingStatus.value = 'processing'
+            setTimeout(checkSessionStatus, 2000)
+            return
+          }
+
+          // Use placeholder data if backend fails for other reasons
           score.value = '?'
           totalQuestions.value = '?'
         }
@@ -101,6 +156,7 @@ export default {
       totalQuestions,
       percentage,
       resultsData,
+      processingStatus,
       startNewExam,
       goHome
     }
@@ -248,6 +304,85 @@ export default {
   background: white;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.debug-results {
+  text-align: left;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.debug-results h3 {
+  color: #dc2626;
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+}
+
+.debug-results pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.processing-message {
+  text-align: center;
+  padding: 2rem;
+}
+
+.processing-message h3 {
+  color: #16a34a;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.processing-message p {
+  color: #6b7280;
+  margin-bottom: 2rem;
+  font-size: 1.1rem;
+}
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.loading-dot {
+  width: 12px;
+  height: 12px;
+  background: #16a34a;
+  border-radius: 50%;
+  animation: loading-pulse 1.4s ease-in-out infinite both;
+}
+
+.loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.loading-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes loading-pulse {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 768px) {

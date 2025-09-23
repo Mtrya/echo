@@ -16,11 +16,11 @@ class SpeechClient:
         # Using Siliconflow for speech services with specific models
         self.api_key = os.getenv("SILICONFLOW_API_KEY")
         self.base_url = "https://api.siliconflow.cn/v1"
-        self.stt_model = "FunAudioLLM/SenseVoiceSmall"  # For speech-to-text
+        self.stt_model = "TeleAI/TeleSpeechASR"  # For speech-to-text
         self.tts_model = "FunAudioLLM/CosyVoice2-0.5B"  # For text-to-speech
         self.voice_mapping = {
             "female": "FunAudioLLM/CosyVoice2-0.5B:anna",
-            "male": "FunAudioLLM/CosyVoice2-0.5B:benjamin"
+            "male": "FunAudioLLM/CosyVoice2-0.5B:charles"
         }
         
         if not self.api_key:

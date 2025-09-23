@@ -20,6 +20,17 @@
         />
       </div>
 
+      <!-- Instruction Page -->
+      <div v-else-if="currentPage === 'instruction'">
+        <InstructionPage
+          :key="currentQuestionType + '-' + (currentInstruction?.text || '')"
+          :instruction="currentInstruction"
+          :audio-file="currentInstructionAudio"
+          :question-type="currentQuestionType"
+          @start-section="handleInstructionComplete"
+        />
+      </div>
+
       <!-- Read Aloud Question -->
       <div v-else-if="currentPage === 'read-aloud'">
         <ReadAloud
@@ -82,6 +93,7 @@
 import { ref } from 'vue'
 import HomePage from './components/HomePage.vue'
 import AudioTest from './components/AudioTest.vue'
+import InstructionPage from './components/InstructionPage.vue'
 import ReadAloud from './components/ReadAloud.vue'
 import MultipleChoice from './components/MultipleChoice.vue'
 import QuickResponse from './components/QuickResponse.vue'
@@ -93,6 +105,7 @@ export default {
   components: {
     HomePage,
     AudioTest,
+    InstructionPage,
     ReadAloud,
     MultipleChoice,
     QuickResponse,
@@ -104,6 +117,9 @@ export default {
     const currentPage = ref('home')
     const sessionId = ref(null)
     const currentQuestion = ref(null)
+    const currentInstruction = ref(null)
+    const currentInstructionAudio = ref(null)
+    const currentQuestionType = ref(null)
 
     // Handle exam start event from HomePage component
     const handleStartExam = (examData) => {
@@ -141,24 +157,19 @@ export default {
           currentQuestion.value.is_last = data.is_last
           currentQuestion.value.audio_file_path = data.audio_file_path
 
-          console.log('Setting up question:', data.question.type)
+          console.log('Setting up question:', data.question.type, 'has instruction:', !!data.instruction)
 
-          // Navigate to appropriate question type
-          if (data.question.type === 'read_aloud') {
-            currentPage.value = 'read-aloud'
-            console.log('Navigating to read-aloud page')
-          } else if (data.question.type === 'multiple_choice') {
-            currentPage.value = 'multiple-choice'
-            console.log('Navigating to multiple-choice page')
-          } else if (data.question.type === 'quick_response') {
-            currentPage.value = 'quick-response'
-            console.log('Navigating to quick-response page')
-          } else if (data.question.type === 'translation') {
-            currentPage.value = 'translation'
-            console.log('Navigating to translation page')
+          // Check if this is the first question in a section (has instruction)
+          if (data.instruction) {
+            // Show instruction page first
+            currentQuestionType.value = data.question.type
+            currentInstruction.value = data.instruction
+            currentInstructionAudio.value = data.instruct_audio_file_path
+            currentPage.value = 'instruction'
+            console.log('Navigating to instruction page for section:', data.question.type)
           } else {
-            console.log('Unknown question type:', data.question.type)
-            currentPage.value = 'home'
+            // Go directly to question
+            navigateToQuestion(data.question.type)
           }
         } else {
           console.error('No question in response:', data)
@@ -168,6 +179,29 @@ export default {
         console.error('Failed to get next question:', error)
         currentPage.value = 'home'
       }
+    }
+
+    // Navigate to the appropriate question page
+    const navigateToQuestion = (questionType) => {
+      console.log('Navigating to question type:', questionType)
+      if (questionType === 'read_aloud') {
+        currentPage.value = 'read-aloud'
+      } else if (questionType === 'multiple_choice') {
+        currentPage.value = 'multiple-choice'
+      } else if (questionType === 'quick_response') {
+        currentPage.value = 'quick-response'
+      } else if (questionType === 'translation') {
+        currentPage.value = 'translation'
+      } else {
+        console.log('Unknown question type:', questionType)
+        currentPage.value = 'home'
+      }
+    }
+
+    // Handle instruction page completion
+    const handleInstructionComplete = async () => {
+      console.log('Instruction completed, starting question section:', currentQuestionType.value)
+      navigateToQuestion(currentQuestionType.value)
     }
 
     // Handle question completion
@@ -207,8 +241,12 @@ export default {
       currentPage,
       sessionId,
       currentQuestion,
+      currentInstruction,
+      currentInstructionAudio,
+      currentQuestionType,
       handleStartExam,
       handleAudioTestComplete,
+      handleInstructionComplete,
       handleQuestionComplete,
       getNextQuestion,
       handleNewExam,

@@ -54,13 +54,19 @@ class ExamSession:
         if not current_question:
             return False
 
+        # Check if we've already seen this section type
+        if current_question.type in self.seen_sections:
+            return False
+
         # First question ever
         if self.current_question_index == 0:
+            self.mark_section_seen(current_question.type)
             return True
 
         # Check if current question type is different from previous
         previous_question = self.get_previous_question()
         if previous_question and current_question.type != previous_question.type:
+            self.mark_section_seen(current_question.type)
             return True
 
         return False
@@ -105,10 +111,10 @@ class ExamManager:
         session_id = str(uuid.uuid4())
         session = ExamSession(session_id, request.exam_file_path, exam)
         self.sessions[session_id] = session
-        
-        # Prepare audio files for all questions
-        await self._prepare_audio_files(session)
-        
+
+        # Start audio files generation in background (don't wait for it)
+        asyncio.create_task(self._prepare_audio_files(session))
+
         return SessionResponse(
             session_id=session_id,
             exam_title=exam.title,
@@ -302,7 +308,7 @@ class ExamManager:
         for section_type, instruction in session.exam.section_instructions.items():
             if instruction.tts:
                 try:
-                    tts_request = TTSInput(text=instruction.tts, voice="female")
+                    tts_request = TTSInput(text=instruction.tts, voice="male")
                     tts_result = await self.speech_client.text_to_speech(tts_request)
                     # Store with section_type prefix to avoid conflicts
                     audio_files[f"section_{section_type}"] = tts_result.audio_file_path
