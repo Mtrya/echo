@@ -55,7 +55,7 @@ class SpeechClient:
             voice = self.voice_mapping.get(request.voice, "FunAudioLLM/CosyVoice2-0.5B:claire")
             
             # Check cache first
-            cache_file = self._get_tts_cache_path(request.text, voice)
+            cache_file = self._get_tts_cache_path(request.text, request.voice)
             if cache_file.exists():
                 print(f"Using cached audio: {cache_file}")
                 return TTSOutput(

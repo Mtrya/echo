@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '^/(exams|session|health).*': {
+      '^/(exams|session|health|audio_cache).*': {
         target: 'http://localhost:8000',
         changeOrigin: true
       }

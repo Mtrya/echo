@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uvicorn
@@ -44,6 +45,9 @@ app.add_middleware(
 # Initialize managers
 exam_manager = ExamManager()
 file_converter = FileProcessor()
+
+# Mount static files for audio cache
+app.mount("/audio_cache", StaticFiles(directory="../audio_cache"), name="audio_cache")
 
 # Root endpoint
 @app.get("/")

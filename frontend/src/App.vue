@@ -23,9 +23,49 @@
       <!-- Read Aloud Question -->
       <div v-else-if="currentPage === 'read-aloud'">
         <ReadAloud
+          :key="currentQuestion?.id || 'read-aloud'"
           :session-id="sessionId"
           :current-question="currentQuestion"
           @complete="handleQuestionComplete"
+        />
+      </div>
+
+      <!-- Multiple Choice Question -->
+      <div v-else-if="currentPage === 'multiple-choice'">
+        <MultipleChoice
+          :key="currentQuestion?.id || 'multiple-choice'"
+          :session-id="sessionId"
+          :current-question="currentQuestion"
+          @complete="handleQuestionComplete"
+        />
+      </div>
+
+      <!-- Quick Response Question -->
+      <div v-else-if="currentPage === 'quick-response'">
+        <QuickResponse
+          :key="currentQuestion?.id || 'quick-response'"
+          :session-id="sessionId"
+          :current-question="currentQuestion"
+          @complete="handleQuestionComplete"
+        />
+      </div>
+
+      <!-- Translation Question -->
+      <div v-else-if="currentPage === 'translation'">
+        <Translation
+          :key="currentQuestion?.id || 'translation'"
+          :session-id="sessionId"
+          :current-question="currentQuestion"
+          @complete="handleQuestionComplete"
+        />
+      </div>
+
+      <!-- Results Page -->
+      <div v-else-if="currentPage === 'results'">
+        <Results
+          :session-id="sessionId"
+          @new-exam="handleNewExam"
+          @go-home="handleGoHome"
         />
       </div>
 
@@ -43,13 +83,21 @@ import { ref } from 'vue'
 import HomePage from './components/HomePage.vue'
 import AudioTest from './components/AudioTest.vue'
 import ReadAloud from './components/ReadAloud.vue'
+import MultipleChoice from './components/MultipleChoice.vue'
+import QuickResponse from './components/QuickResponse.vue'
+import Translation from './components/Translation.vue'
+import Results from './components/Results.vue'
 
 export default {
   name: 'App',
   components: {
     HomePage,
     AudioTest,
-    ReadAloud
+    ReadAloud,
+    MultipleChoice,
+    QuickResponse,
+    Translation,
+    Results
   },
   setup() {
     // Navigation state
@@ -91,6 +139,7 @@ export default {
           currentQuestion.value = data.question
           currentQuestion.value.question_index = data.question_index
           currentQuestion.value.is_last = data.is_last
+          currentQuestion.value.audio_file_path = data.audio_file_path
 
           console.log('Setting up question:', data.question.type)
 
@@ -99,14 +148,14 @@ export default {
             currentPage.value = 'read-aloud'
             console.log('Navigating to read-aloud page')
           } else if (data.question.type === 'multiple_choice') {
-            console.log('Multiple choice question not yet implemented:', data.question.type)
-            currentPage.value = 'home'
+            currentPage.value = 'multiple-choice'
+            console.log('Navigating to multiple-choice page')
           } else if (data.question.type === 'quick_response') {
-            console.log('Quick response question not yet implemented:', data.question.type)
-            currentPage.value = 'home'
+            currentPage.value = 'quick-response'
+            console.log('Navigating to quick-response page')
           } else if (data.question.type === 'translation') {
-            console.log('Translation question not yet implemented:', data.question.type)
-            currentPage.value = 'home'
+            currentPage.value = 'translation'
+            console.log('Navigating to translation page')
           } else {
             console.log('Unknown question type:', data.question.type)
             currentPage.value = 'home'
@@ -127,9 +176,9 @@ export default {
 
       if (result.success) {
         if (currentQuestion.value.is_last) {
-          // Go to results page (not implemented yet)
-          console.log('Exam completed!')
-          currentPage.value = 'home'
+          // Go to results page
+          console.log('Exam completed! Navigating to results...')
+          currentPage.value = 'results'
         } else {
           // Get next question
           await getNextQuestion()
@@ -141,6 +190,19 @@ export default {
       }
     }
 
+    // Handle new exam request from results page
+    const handleNewExam = () => {
+      // Reset state for new exam
+      currentPage.value = 'home'
+      sessionId.value = null
+      currentQuestion.value = null
+    }
+
+    // Handle go home request from results page
+    const handleGoHome = () => {
+      currentPage.value = 'home'
+    }
+
     return {
       currentPage,
       sessionId,
@@ -148,7 +210,9 @@ export default {
       handleStartExam,
       handleAudioTestComplete,
       handleQuestionComplete,
-      getNextQuestion
+      getNextQuestion,
+      handleNewExam,
+      handleGoHome
     }
   }
 }

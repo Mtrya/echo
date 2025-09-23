@@ -99,23 +99,26 @@ class ExamManager:
         """Submit answer and process asynchronously"""
         session = self._get_session(session_id)
         question = session.get_current_question()
-        
+
         if question is None:
             raise ValueError("No current question to answer")
-        
+
+        # Check if this is the last question
+        is_last_question = session.current_question_index == len(session.exam.questions) - 1
+
         # Start async processing (don't wait for it)
         asyncio.create_task(self._process_answer_async(session, question, answer_data))
-        
-        # Advance to next question immediately
-        session.advance_to_next_question()
-        
-        # Check if exam is completed
-        if session.is_completed():
+
+        # Only advance to next question if it's not the last one
+        if not is_last_question:
+            session.advance_to_next_question()
+        else:
+            # If it's the last question, complete the session
             session.complete()
-        
+
         return AnswerResponse(
             message="Answer submitted and processing",
-            question_index=session.current_question_index - 1,
+            question_index=session.current_question_index,
             processing=True
         )
     

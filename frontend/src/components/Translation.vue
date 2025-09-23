@@ -1,8 +1,8 @@
 <template>
-  <div class="read-aloud">
+  <div class="translation">
     <!-- Display Phase -->
     <div v-if="phase === 'display'" class="display-phase">
-      <div class="instruction-text">
+      <div class="chinese-text">
         {{ currentQuestion.text }}
       </div>
       <div class="status-text">
@@ -10,10 +10,26 @@
       </div>
     </div>
 
+    <!-- Thinking Phase -->
+    <div v-else-if="phase === 'thinking'" class="thinking-phase">
+      <div class="chinese-text">
+        {{ currentQuestion.text }}
+      </div>
+      <div class="thinking-text">
+        Get ready to translate...
+      </div>
+      <div class="countdown-text">
+        {{ countdownText }}
+      </div>
+    </div>
+
     <!-- Recording Phase -->
     <div v-else-if="phase === 'recording'" class="recording-phase">
-      <div class="instruction-text">
+      <div class="chinese-text">
         {{ currentQuestion.text }}
+      </div>
+      <div class="recording-instruction">
+        🎤 Speak your English translation now
       </div>
       <div class="recording-indicator" :class="{ 'recording-danger': timeRemaining <= 5 }">
         <div class="recording-dot"></div>
@@ -30,7 +46,16 @@
       </button>
     </div>
 
-    
+    <!-- Auto-submit Phase -->
+    <div v-else-if="phase === 'auto-submit'" class="auto-submit-phase">
+      <div class="chinese-text">
+        {{ currentQuestion.text }}
+      </div>
+      <div class="auto-submit-text">
+        Time's up! Submitting your answer...
+      </div>
+    </div>
+
     <!-- Hidden audio player for instruction audio -->
     <audio ref="audioPlayer" hidden></audio>
   </div>
@@ -40,7 +65,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 
 export default {
-  name: 'ReadAloud',
+  name: 'Translation',
   props: {
     sessionId: {
       type: String,
@@ -54,17 +79,21 @@ export default {
   emits: ['complete'],
   setup(props, { emit }) {
     // Phase management
-    const phase = ref('display') // 'display', 'recording'
+    const phase = ref('display') // 'display', 'thinking', 'recording', 'auto-submit'
 
     // Timer and audio
     const timeRemaining = ref(0)
     const audioPlayer = ref(null)
     const audioStatus = ref('Preparing...')
+    const countdownText = ref('3')
 
     // Media recorder and audio stream
     let mediaRecorder = null
     let audioChunks = []
     let audioStream = null
+
+    // Timer references
+    let thinkingTimer = null
     let recordingTimer = null
     let displayTimer = null
 
@@ -76,7 +105,7 @@ export default {
     // Watch for question changes and reset state
     watch(() => props.currentQuestion, async (newQuestion, oldQuestion) => {
       if (newQuestion && newQuestion.id !== oldQuestion?.id) {
-        console.log('ReadAloud: Question changed from', oldQuestion?.id, 'to', newQuestion.id)
+        console.log('Translation: Question changed from', oldQuestion?.id, 'to', newQuestion.id)
         // Reset component state for new question
         resetState()
         // Initialize new question
@@ -91,7 +120,7 @@ export default {
 
     // Reset component state for new question
     const resetState = () => {
-      console.log('ReadAloud: Resetting component state')
+      console.log('Translation: Resetting component state')
 
       // Clean up any existing resources
       cleanup()
@@ -100,11 +129,12 @@ export default {
       phase.value = 'display'
       timeRemaining.value = 0
       audioStatus.value = 'Preparing...'
+      countdownText.value = '3'
 
       // Reset audio chunks
       audioChunks = []
 
-      console.log('ReadAloud: State reset complete')
+      console.log('Translation: State reset complete')
     }
 
     // Initialize the question flow
@@ -154,15 +184,15 @@ export default {
         audioStatus.value = 'Playing instructions...'
         await playInstructionAudio()
       } else {
-        // No audio file, wait 3 seconds
-        audioStatus.value = 'Get ready to read...'
+        // No audio file, wait 5 seconds
+        audioStatus.value = 'Get ready to translate...'
         await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 3000)
+          displayTimer = setTimeout(resolve, 5000)
         })
       }
 
-      // Start recording phase
-      startRecordingPhase()
+      // Start thinking phase
+      startThinkingPhase()
     }
 
     // Play instruction audio
@@ -179,17 +209,38 @@ export default {
         }
       } catch (error) {
         console.error('Failed to play instruction audio:', error)
-        // Continue with 3-second fallback
+        // Continue with 5-second fallback
         await new Promise(resolve => {
-          displayTimer = setTimeout(resolve, 3000)
+          displayTimer = setTimeout(resolve, 5000)
         })
       }
+    }
+
+    // Start thinking phase
+    const startThinkingPhase = () => {
+      phase.value = 'thinking'
+      let countdown = 3
+
+      // Start countdown timer
+      thinkingTimer = setInterval(() => {
+        countdown--
+        countdownText.value = countdown.toString()
+
+        if (countdown <= 0) {
+          clearInterval(thinkingTimer)
+          thinkingTimer = null
+          startRecordingPhase()
+        }
+      }, 1000)
     }
 
     // Start recording phase
     const startRecordingPhase = () => {
       phase.value = 'recording'
-      timeRemaining.value = props.currentQuestion.time_limit || 15
+
+      // Calculate time: half of time_limit for thinking (already used), half for recording
+      const totalTime = props.currentQuestion.time_limit || 30
+      timeRemaining.value = Math.floor(totalTime / 2)
 
       // Start recording
       if (mediaRecorder && mediaRecorder.state === 'inactive') {
@@ -202,7 +253,7 @@ export default {
         timeRemaining.value--
 
         if (timeRemaining.value <= 0) {
-          stopRecording()
+          autoSubmit()
         }
       }, 1000)
     }
@@ -221,6 +272,17 @@ export default {
       if (audioStream) {
         audioStream.getTracks().forEach(track => track.stop())
       }
+    }
+
+    // Auto-submit when time runs out
+    const autoSubmit = () => {
+      phase.value = 'auto-submit'
+      stopRecording()
+
+      // Brief delay to show auto-submit message
+      setTimeout(() => {
+        submitAnswer()
+      }, 2000)
     }
 
     // Submit the recorded answer
@@ -246,7 +308,7 @@ export default {
         if (response.ok) {
           console.log('Answer submitted successfully')
 
-          // Immediately emit completion event - don't wait for processing
+          // Immediately emit completion event
           emit('complete', {
             sessionId: props.sessionId,
             questionIndex: props.currentQuestion.question_index,
@@ -293,6 +355,11 @@ export default {
 
     // Cleanup resources
     const cleanup = () => {
+      if (thinkingTimer) {
+        clearInterval(thinkingTimer)
+        thinkingTimer = null
+      }
+
       if (recordingTimer) {
         clearInterval(recordingTimer)
         recordingTimer = null
@@ -317,6 +384,7 @@ export default {
       timeRemaining,
       audioPlayer,
       audioStatus,
+      countdownText,
       stopRecording
     }
   }
@@ -324,24 +392,16 @@ export default {
 </script>
 
 <style scoped>
-.read-aloud {
+.translation {
   text-align: center;
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
   padding: 2rem;
 }
 
-/* Display Phase */
-.display-phase {
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-.instruction-text {
-  font-size: 1.8rem;
+/* Chinese Text Display */
+.chinese-text {
+  font-size: 2rem;
   color: #374151;
   margin-bottom: 2rem;
   line-height: 1.6;
@@ -349,6 +409,16 @@ export default {
   background: rgba(255, 255, 255, 0.9);
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+/* Display Phase */
+.display-phase {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .status-text {
@@ -357,13 +427,43 @@ export default {
   font-weight: 600;
 }
 
-/* Recording Phase */
-.recording-phase {
+/* Thinking Phase */
+.thinking-phase {
   min-height: 400px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+}
+
+.thinking-text {
+  font-size: 1.6rem;
+  color: #374151;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.countdown-text {
+  font-size: 3rem;
+  color: #16a34a;
+  font-weight: 700;
+  animation: countdown-pulse 1s infinite;
+}
+
+/* Recording Phase */
+.recording-phase {
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.recording-instruction {
+  font-size: 1.5rem;
+  color: #374151;
+  margin-bottom: 2rem;
+  font-weight: 600;
 }
 
 .recording-indicator {
@@ -407,6 +507,21 @@ export default {
   color: #ef4444;
 }
 
+/* Auto-submit Phase */
+.auto-submit-phase {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.auto-submit-text {
+  font-size: 1.5rem;
+  color: #ef4444;
+  font-weight: 600;
+  animation: pulse 1s infinite;
+}
 
 /* Button Styles */
 .btn {
@@ -444,5 +559,10 @@ export default {
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 </style>
