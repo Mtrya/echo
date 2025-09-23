@@ -2,6 +2,42 @@ exam:
   title: Comprehensive English and Math Exam 2099
   description: A comprehensive exam covering English language skills and mathematics for 10-year-old Chinese students
   questions:
+  # Read Aloud Questions (5 questions)
+    - id: ra1
+      type: read_aloud
+      text: The quick brown fox jumps over the lazy dog
+      reference_answer: The quick brown fox jumps over the lazy dog
+      time_limit: 15
+      tts: Please read this sentence aloud
+
+    - id: ra2
+      type: read_aloud
+      text: I enjoy playing basketball with my friends after school
+      reference_answer: I enjoy playing basketball with my friends after school
+      time_limit: 15
+      tts: Please read this sentence aloud
+
+    - id: ra3
+      type: read_aloud
+      text: Mathematics is my favorite subject in school
+      reference_answer: Mathematics is my favorite subject in school
+      time_limit: 15
+      tts: Please read this sentence aloud
+
+    - id: ra4
+      type: read_aloud
+      text: The weather today is sunny and warm
+      reference_answer: The weather today is sunny and warm
+      time_limit: 15
+      tts: Please read this sentence aloud
+
+    - id: ra5
+      type: read_aloud
+      text: My family and I are going to the park this weekend
+      reference_answer: My family and I are going to the park this weekend
+      time_limit: 15
+      tts: Please read this sentence aloud
+
     - id: mc1
       type: multiple_choice
       text: What is 45 × 12?
@@ -57,42 +93,6 @@ exam:
         - 'D: 100'
       reference_answer: B
       time_limit: 30
-
-    # Read Aloud Questions (5 questions)
-    - id: ra1
-      type: read_aloud
-      text: The quick brown fox jumps over the lazy dog
-      reference_answer: The quick brown fox jumps over the lazy dog
-      time_limit: 15
-      tts: Please read this sentence aloud
-
-    - id: ra2
-      type: read_aloud
-      text: I enjoy playing basketball with my friends after school
-      reference_answer: I enjoy playing basketball with my friends after school
-      time_limit: 15
-      tts: Please read this sentence aloud
-
-    - id: ra3
-      type: read_aloud
-      text: Mathematics is my favorite subject in school
-      reference_answer: Mathematics is my favorite subject in school
-      time_limit: 15
-      tts: Please read this sentence aloud
-
-    - id: ra4
-      type: read_aloud
-      text: The weather today is sunny and warm
-      reference_answer: The weather today is sunny and warm
-      time_limit: 15
-      tts: Please read this sentence aloud
-
-    - id: ra5
-      type: read_aloud
-      text: My family and I are going to the park this weekend
-      reference_answer: My family and I are going to the park this weekend
-      time_limit: 15
-      tts: Please read this sentence aloud
 
     # Quick Response Questions (5 questions)
     - id: qr1

@@ -171,19 +171,19 @@ class ExamManager:
         return sorted(exam_files)
     
     async def _load_exam_from_yaml(self, file_path: str) -> Exam:
-        """Load exam from YAML file"""
+        """Load exam from YAML file and sort questions by type"""
         full_path = Path("../exams") / file_path
         if not full_path.exists():
             raise FileNotFoundError(f"Exam file not found: {file_path}")
-        
+
         with open(full_path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
-        
+
         if 'exam' in data:
             exam_data = data['exam']
         else:
             exam_data = data
-        
+
         questions = []
         for q_data in exam_data.get('questions', []):
             question = Question(
@@ -196,7 +196,20 @@ class ExamManager:
                 tts=q_data.get('tts')
             )
             questions.append(question)
-        
+
+        # Sort questions by type in the specified order
+        type_order = {
+            'read_aloud': 0,
+            'multiple_choice': 1,
+            'quick_response': 2,
+            'translation': 3
+        }
+
+        # Sort questions: first by type order, then by original order for same types
+        questions.sort(key=lambda q: (type_order.get(q.type, 99), questions.index(q)))
+
+        print(f"Questions sorted by type order: {[q.type for q in questions]}")
+
         return Exam(
             title=exam_data['title'],
             description=exam_data.get('description', ''),

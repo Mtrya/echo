@@ -90,10 +90,12 @@ Submit an answer for the current question. Processing happens asynchronously.
 
 ```json
 {
-  "answer_text": "A",  // For text-based answers
-  "audio_data": "direct binary data (blob)"  // For voice answers (optional)
+  "answer_text": "A",  // For text-based answers (optional)
+  "audio_data": "base64-encoded-audio-data"  // For voice answers (optional)
 }
 ```
+
+**Note:** Audio data should be base64-encoded and sent as a string in the JSON payload. The backend will automatically decode it to bytes for processing.
 
 **Response:**
 
