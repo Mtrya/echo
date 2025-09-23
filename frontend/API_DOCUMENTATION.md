@@ -76,7 +76,12 @@ Get the current question for the session. Includes audio file path if available.
   },
   "audio_file_path": "../audio_cache/tts/bea39faa84a9823d21818aa1e104ecdd.mp3",
   "question_index": 0,
-  "is_last": false
+  "is_last": false,
+  "instruction": {
+    "text": "This is a multiple choice section. Please listen to each question and select the correct answer.",
+    "tts": "This is a multiple choice section. Please listen to each question and select the correct answer."
+  },
+  "instruction_audio_file_path": "../audio_cache/tts/f4496987dabd9f56fa5c336c2ab63ff0.mp3"
 }
 ```
 
@@ -95,7 +100,7 @@ Submit an answer for the current question. Processing happens asynchronously.
 }
 ```
 
-**Note:** Audio data should be base64-encoded and sent as a string in the JSON payload. The backend will automatically decode it to bytes for processing.
+**Note:** Audio data should be base64-encoded and sent as a string in the JSON payload. The backend will automatically decode it to bytes for processing. Only one of `answer_text` or `audio_data` should be provided based on question type.
 
 **Response:**
 
@@ -107,7 +112,26 @@ Submit an answer for the current question. Processing happens asynchronously.
 }
 ```
 
-### 5. Get Final Results
+### 5. Get Session Status
+
+**GET** `/session/{session_id}/status`
+
+Get the current status of a session (audio generation and STT/LLM processing).
+
+**Response:**
+
+```json
+{
+  "audio_generation": "completed",
+  "processing": "idle"
+}
+```
+
+**Status Values:**
+- `audio_generation`: "generating" | "completed"
+- `processing`: "idle" | "processing"
+
+### 6. Get Final Results
 
 **GET** `/session/{session_id}/results`
 
