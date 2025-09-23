@@ -185,7 +185,8 @@ class ExamManager:
             exam_data = data
 
         questions = []
-        for q_data in exam_data.get('questions', []):
+        original_indices = {}  # Store original positions for stable sorting
+        for i, q_data in enumerate(exam_data.get('questions', [])):
             question = Question(
                 id=q_data['id'],
                 type=q_data['type'],
@@ -196,6 +197,7 @@ class ExamManager:
                 tts=q_data.get('tts')
             )
             questions.append(question)
+            original_indices[question.id] = i  # Store original index
 
         # Sort questions by type in the specified order
         type_order = {
@@ -206,7 +208,7 @@ class ExamManager:
         }
 
         # Sort questions: first by type order, then by original order for same types
-        questions.sort(key=lambda q: (type_order.get(q.type, 99), questions.index(q)))
+        questions.sort(key=lambda q: (type_order.get(q.type, 99), original_indices.get(q.id, 0)))
 
         print(f"Questions sorted by type order: {[q.type for q in questions]}")
 
