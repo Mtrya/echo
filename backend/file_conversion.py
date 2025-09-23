@@ -39,7 +39,7 @@ class FileProcessor:
                     'text': line,
                     'type': 'multiple_choice',
                     'options': [],
-                    'correct_answer': None
+                    'reference_answer': None
                 }
             elif line.startswith(('A:', 'B:', 'C:', 'D:')):
                 option = line[2:].strip()

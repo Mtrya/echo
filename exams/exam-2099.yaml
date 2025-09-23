@@ -1,6 +1,24 @@
 exam:
   title: Comprehensive English and Math Exam 2099
   description: A comprehensive exam covering English language skills and mathematics for 10-year-old Chinese students
+
+  section_instructions:
+    read_aloud:
+      text: "For read aloud questions, you should read displayed English sentences aloud."
+      tts: "For read aloud questions, you should read displayed English sentences aloud."
+
+    multiple_choice:
+      text: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D."
+      tts: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D."
+
+    quick_response:
+      text: "For quick response questions, you will hear a question and respond by speaking. Listen carefully and answer clearly."
+      tts: "For quick response questions, you will hear a question and respond by speaking. Listen carefully and answer clearly."
+
+    translation:
+      text: "For translation questions, translate the Chinese sentences to English and respond by speaking."
+      tts: "For translation questions, translate the Chinese sentences to English and respond by speaking."
+
   questions:
   # Read Aloud Questions (5 questions)
     - id: ra1
@@ -8,35 +26,30 @@ exam:
       text: The quick brown fox jumps over the lazy dog
       reference_answer: The quick brown fox jumps over the lazy dog
       time_limit: 15
-      tts: Please read this sentence aloud
 
     - id: ra2
       type: read_aloud
       text: I enjoy playing basketball with my friends after school
       reference_answer: I enjoy playing basketball with my friends after school
       time_limit: 15
-      tts: Please read this sentence aloud
 
     - id: ra3
       type: read_aloud
       text: Mathematics is my favorite subject in school
       reference_answer: Mathematics is my favorite subject in school
       time_limit: 15
-      tts: Please read this sentence aloud
 
     - id: ra4
       type: read_aloud
       text: The weather today is sunny and warm
       reference_answer: The weather today is sunny and warm
       time_limit: 15
-      tts: Please read this sentence aloud
 
     - id: ra5
       type: read_aloud
       text: My family and I are going to the park this weekend
       reference_answer: My family and I are going to the park this weekend
       time_limit: 15
-      tts: Please read this sentence aloud
 
     - id: mc1
       type: multiple_choice
@@ -48,7 +61,6 @@ exam:
         - 'D: 500'
       reference_answer: A
       time_limit: 30
-      tts: For multiple choice questions, read the question carefully and choose the best answer from A, B, C, or D.
 
     - id: mc2
       type: multiple_choice
@@ -99,31 +111,26 @@ exam:
       type: quick_response
       text: What do you like to do in your free time?
       time_limit: 15
-      tts: What do you like to do in your free time?
 
     - id: qr2
       type: quick_response
       text: Describe your best friend
       time_limit: 15
-      tts: Describe your best friend
 
     - id: qr3
       type: quick_response
       text: What did you eat for breakfast this morning?
       time_limit: 15
-      tts: What did you eat for breakfast this morning?
 
     - id: qr4
       type: quick_response
       text: Tell me about your favorite book or movie
       time_limit: 15
-      tts: Tell me about your favorite book or movie
 
     - id: qr5
       type: quick_response
       text: What do you want to be when you grow up?
       time_limit: 15
-      tts: What do you want to be when you grow up?
 
     # Translation Questions (5 questions)
     - id: tr1
@@ -131,7 +138,6 @@ exam:
       text: 虽然数学很难，但是我认为它很有趣。
       reference_answer: Although mathematics is difficult, I think it is very interesting.
       time_limit: 30
-      tts: Please translate this Chinese sentence to English.
 
     - id: tr2
       type: translation

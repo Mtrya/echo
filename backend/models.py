@@ -10,18 +10,22 @@ class Question(BaseModel):
     options: Optional[List[str]] = None
     reference_answer: Optional[str] = None
     time_limit: int = 30
-    tts: Optional[str] = None  # Text to convert to speech for audio questions
+
+class SectionInstruction(BaseModel):
+    text: str
+    tts: Optional[str] = None
 
 class Exam(BaseModel):
     title: str
     description: str
+    section_instructions: Dict[str, SectionInstruction]  # Key: question type, value: instruction
     questions: List[Question]
 
 # API Processing Models
 class GradingInput(BaseModel):
     question_type: str  # "multiple_choice", "read_aloud", "quick_response", "translation"
     student_answer: str
-    correct_answer: Optional[str] = None
+    reference_answer: Optional[str] = None
     question_text: str
     options: Optional[List[str]] = None # ["A:6","B:7","C:8","D:9"], for multiple choice
 
@@ -64,6 +68,8 @@ class QuestionResponse(BaseModel):
     audio_file_path: Optional[str] = None
     question_index: int
     is_last: bool
+    instruction: Optional[SectionInstruction] = None
+    instruct_audio_file_path: Optional[str] = None
 
 class AnswerSubmission(BaseModel):
     answer_text: Optional[str] = None

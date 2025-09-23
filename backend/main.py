@@ -123,6 +123,20 @@ async def submit_answer(session_id: str, answer_data: AnswerSubmission):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error submitting answer: {str(e)}")
 
+# Get session status (unified endpoint for audio generation and processing status)
+@app.get("/session/{session_id}/status")
+async def get_session_status(session_id: str):
+    """Get the current status of a session (audio generation and processing)"""
+    try:
+        return await exam_manager.get_session_status(session_id)
+    except ValueError as e:
+        if "Session not found" in str(e):
+            raise HTTPException(status_code=400, detail=str(e))
+        else:
+            raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting session status: {str(e)}")
+
 # Get final results
 @app.get("/session/{session_id}/results", response_model=FinalResult)
 async def get_results(session_id: str):

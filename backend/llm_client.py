@@ -46,7 +46,7 @@ class LLMClient:
     async def _grade_multiple_choice(self, request: GradingInput) -> GradingResult:
         """Multiple choice: automatic scoring, LLM provides explanation"""
         try:
-            is_correct = request.student_answer.lower() == request.correct_answer.lower()
+            is_correct = request.student_answer.lower() == request.reference_answer.lower()
             score = 1.0 if is_correct else 0.0
             
             # Generate explanation for why each option is right or wrong
@@ -56,7 +56,7 @@ class LLMClient:
             You are an expert English and Math teacher for 10-year-old Chinese students.
             
             Question: {request.question_text}
-            Correct Answer: {request.correct_answer}
+            Correct Answer: {request.reference_answer}
             Student's Answer: {request.student_answer}
             Options: {options_text}
             
@@ -69,7 +69,7 @@ class LLMClient:
             
             explanation = await self._call_llm(prompt)
             
-            feedback = "Correct! Well done!" if is_correct else f"Incorrect. The right answer is: {request.correct_answer}"
+            feedback = "Correct! Well done!" if is_correct else f"Incorrect. The right answer is: {request.reference_answer}"
             
             return GradingResult(
                 score=score,
@@ -80,7 +80,7 @@ class LLMClient:
         except Exception as e:
             return GradingResult(
                 score=score,
-                feedback="Correct! Well done!" if is_correct else f"Incorrect. The right answer is: {request.correct_answer}",
+                feedback="Correct! Well done!" if is_correct else f"Incorrect. The right answer is: {request.reference_answer}",
                 explanation=f"Technical issue with AI explanation. Exception: {e}"
             )
     
@@ -90,7 +90,7 @@ class LLMClient:
             # Simple text matching for read aloud practice
             # Remove punctuation and convert to lowercase for comparison
             clean_student = request.student_answer.lower().replace('.', '').replace(',', '').replace('!', '').replace('?', '')
-            clean_correct = request.correct_answer.lower().replace('.', '').replace(',', '').replace('!', '').replace('?', '')
+            clean_correct = request.reference_answer.lower().replace('.', '').replace(',', '').replace('!', '').replace('?', '')
             
             # Check if student answer contains key words from correct answer
             correct_words = set(clean_correct.split())
