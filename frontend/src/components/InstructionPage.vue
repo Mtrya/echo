@@ -69,112 +69,26 @@ export default {
           console.log(`▶️ Playing instruction audio: ${props.audioFile}`)
           const player = audioPlayer.value
 
-          // Force complete reset of audio element (simulate HMR refresh)
-          const forceResetAudio = () => {
-            console.log(`🔄 Force resetting audio element for ${componentId}`)
-
-            // Remove from DOM
-            const parent = player.parentNode
-            if (parent) {
-              parent.removeChild(player)
-            }
-
-            // Create fresh audio element
-            const freshPlayer = document.createElement('audio')
-            freshPlayer.hidden = true
-            freshPlayer.id = `audio-${componentId}`
-
-            // Add back to DOM
-            if (parent) {
-              parent.appendChild(freshPlayer)
-            }
-
-            // Update ref
-            audioPlayer.value = freshPlayer
-
-            return freshPlayer
-          }
-
-          // Clean up any existing audio state
-          player.pause()
-          player.currentTime = 0
-          player.src = ''
-
-          let playTimeout = null
-          let isStuck = false
-          let stuckTime = 0
-
-          const cleanupAndResolve = () => {
-            clearTimeout(playTimeout)
-            player.removeEventListener('ended', cleanupAndResolve)
-            player.removeEventListener('error', cleanupAndReject)
-            player.removeEventListener('timeupdate', checkProgress)
+          const handleAudioEnd = () => {
+            player.removeEventListener('ended', handleAudioEnd)
+            player.removeEventListener('error', handleAudioError)
             resolve()
           }
 
-          const cleanupAndReject = (err) => {
-            clearTimeout(playTimeout)
-            player.removeEventListener('ended', cleanupAndResolve)
-            player.removeEventListener('error', cleanupAndReject)
-            player.removeEventListener('timeupdate', checkProgress)
+          const handleAudioError = (err) => {
+            player.removeEventListener('ended', handleAudioEnd)
+            player.removeEventListener('error', handleAudioError)
             console.error('❌ Audio play error:', err)
             reject(err)
           }
 
-          const checkProgress = () => {
-            if (!isStuck && player.currentTime > 0) {
-              console.log(`📊 Audio progress: ${player.currentTime.toFixed(2)}s`)
-              stuckTime = player.currentTime // Track current position
-            }
-          }
+          // Set up event listeners
+          player.addEventListener('ended', handleAudioEnd)
+          player.addEventListener('error', handleAudioError)
 
-          const handleStuckAudio = () => {
-            console.log(`⚠️ Audio appears stuck at ${stuckTime.toFixed(2)}s, attempting reset for ${componentId}`)
-            isStuck = true
-
-            // Force reset audio element
-            const freshPlayer = forceResetAudio()
-
-            // Set up event listeners on the fresh player
-            freshPlayer.addEventListener('ended', cleanupAndResolve)
-            freshPlayer.addEventListener('error', cleanupAndReject)
-
-            // Try playing with fresh audio element, resuming from stuck position
-            setTimeout(() => {
-              try {
-                freshPlayer.src = props.audioFile
-                freshPlayer.load()
-
-                // Set current time to where we got stuck (with a small offset to avoid getting stuck again)
-                freshPlayer.currentTime = stuckTime + 0.075
-
-                freshPlayer.play().then(() => {
-                  console.log(`✅ Audio recovered after reset, resuming from ${stuckTime.toFixed(2)}s for ${componentId}`)
-                }).catch(() => {
-                  console.log(`❌ Reset failed, proceeding anyway for ${componentId}`)
-                  cleanupAndResolve() // Just proceed if reset fails
-                })
-              } catch (err) {
-                console.log(`❌ Reset failed completely, proceeding anyway for ${componentId}`)
-                cleanupAndResolve() // Just proceed if everything fails
-              }
-            }, 100)
-          }
-
-          // Set up event listeners first
-          player.addEventListener('ended', cleanupAndResolve)
-          player.addEventListener('error', cleanupAndReject)
-          player.addEventListener('timeupdate', checkProgress)
-
-          // Set up stuck detection - if no progress for 3 seconds, force reset
-          playTimeout = setTimeout(handleStuckAudio, 3000)
-
-          // Then set source and load
+          // Set source and play
           player.src = props.audioFile
-          player.load()
-
-          // Finally play
-          player.play().catch(cleanupAndReject)
+          player.play().catch(handleAudioError)
         } else {
           const msg = 'InstructionPage: No audio file or audio player available.'
           console.warn(msg)
