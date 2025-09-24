@@ -7,14 +7,14 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 try:
     from .models import (
-        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput,
+        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput, AudioGenerationStatus,
         SessionStartRequest, SessionResponse, QuestionResponse, AnswerSubmission,
         AnswerResponse, FinalResult
     )
     from .omni_client import OmniClient
 except ImportError:
     from models import (
-        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput,
+        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput, AudioGenerationStatus,
         SessionStartRequest, SessionResponse, QuestionResponse, AnswerSubmission,
         AnswerResponse, FinalResult
     )
@@ -173,46 +173,63 @@ class ExamManager:
             processing=True
         )
     
-    async def get_session_status(self, session_id: str) -> Dict[str, str]:
-        """Get the current status of a session (audio generation and processing)"""
+    async def get_audio_generation_status(self, session_id: str) -> AudioGenerationStatus:
+        """Get the audio generation status for a session"""
         session = self._get_session(session_id)
 
         # Check audio generation status
         audio_generation = "completed" if session.audio_files else "generating"
 
-        # Check if there's any processing happening (STT/LLM grading)
-        processing = "processing" if session.is_processing() else "idle"
-
-        return {
-            "audio_generation": audio_generation,
-            "processing": processing
-        }
+        return AudioGenerationStatus(
+            audio_generation=audio_generation,
+            session_id=session_id
+        )
 
     async def get_final_results(self, session_id: str) -> FinalResult:
-        """Get final exam results"""
+        """Get final exam results with processed questions and completion status"""
         session = self._get_session(session_id)
-        
-        if not session.is_completed():
-            raise ValueError("Exam not completed")
-        
-        total_score = sum(result.score for result in session.results)
-        max_score = len(session.results)
+
+        # Calculate results for processed questions only
+        processed_results = [r for r in session.results if r.score is not None]
+        total_score = sum(result.score for result in processed_results)
+        max_score = len(processed_results)
         percentage = (total_score / max_score * 100) if max_score > 0 else 0
-        
-        # Prepare question results
+
+        # Prepare question results for processed questions only
         question_results = []
+        processed_count = 0
+
         for i, (question, result) in enumerate(zip(session.exam.questions, session.results)):
-            question_results.append({
-                "question_index": i,
-                "question_id": question.id,
-                "question_type": question.type,
-                "question_text": question.text,
-                "score": result.score,
-                "feedback": result.feedback,
-                "explanation": result.explanation,
-                "suggested_answer": result.suggested_answer
-            })
-        
+            if result.score is not None:  # Question has been processed
+                processed_count += 1
+                question_result = {
+                    "question_index": i,
+                    "question_id": question.id,
+                    "question_type": question.type,
+                    "question_text": question.text,
+                    "score": result.score,
+                    "feedback": result.feedback,
+                    "explanation": result.explanation,
+                    "suggested_answer": result.suggested_answer
+                }
+
+                # Add student answer info for multiple choice
+                if question.type == "multiple_choice" and hasattr(result, 'student_answer'):
+                    question_result["student_answer"] = result.student_answer
+                    question_result["reference_answer"] = question.reference_answer
+
+                # Add audio file path for audio questions
+                if question.type in ["read_aloud", "quick_response", "translation"]:
+                    question_result["student_audio_path"] = getattr(result, 'student_audio_path', None)
+
+                question_results.append(question_result)
+
+        # Check if all questions are processed
+        all_processed = processed_count == len(session.exam.questions)
+
+        # Use current time if exam not completed
+        end_time = session.end_time if session.end_time else datetime.now()
+
         return FinalResult(
             session_id=session_id,
             exam_title=session.exam.title,
@@ -221,8 +238,11 @@ class ExamManager:
             percentage=percentage,
             question_results=question_results,
             start_time=session.start_time,
-            end_time=session.end_time,
-            duration_seconds=int((session.end_time - session.start_time).total_seconds())
+            end_time=end_time,
+            duration_seconds=int((end_time - session.start_time).total_seconds()),
+            all_processed=all_processed,
+            processed_count=processed_count,
+            total_questions=len(session.exam.questions)
         )
     
     async def list_available_exams(self) -> List[str]:

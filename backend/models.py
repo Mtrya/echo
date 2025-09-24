@@ -37,6 +37,8 @@ class GradingResult(BaseModel):
     feedback: str
     explanation: str
     suggested_answer: Optional[str] = None  # For quick response and translation questions
+    student_answer: Optional[str] = None  # For multiple choice questions
+    student_audio_path: Optional[str] = None  # Path to cached student audio file
 
 class TTSInput(BaseModel):
     text: str
@@ -83,6 +85,13 @@ class FinalResult(BaseModel):
     start_time: datetime
     end_time: datetime
     duration_seconds: int
+    all_processed: bool
+    processed_count: int
+    total_questions: int
+
+class AudioGenerationStatus(BaseModel):
+    audio_generation: str  # "generating", "completed"
+    session_id: str
 
 # File Conversion Models
 class DocxConversionRequest(BaseModel):

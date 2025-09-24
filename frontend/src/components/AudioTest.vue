@@ -34,7 +34,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import Mp3Recorder from '../utils/mp3Recorder.js'
 
 export default {
@@ -60,11 +60,19 @@ export default {
     // MP3 recorder
     let mp3Recorder = null
 
+    // Audio context for test beep
+    let testAudioContext = null
+
     // Initialize audio context on component mount
     onMounted(async () => {
       await initializeAudio()
       // Start checking session status
       checkSessionStatus()
+    })
+
+    // Cleanup on component unmount
+    onUnmounted(() => {
+      cleanup()
     })
 
     // Initialize audio permissions and setup
@@ -88,31 +96,36 @@ export default {
     // Play test audio (we'll use a simple beep for now)
     const playTestAudio = async () => {
       if (isPlaying.value) return
-      
+
       try {
         isPlaying.value = true
-        
+
         // Create a simple beep sound using Web Audio API
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-        const oscillator = audioContext.createOscillator()
-        const gainNode = audioContext.createGain()
-        
+        testAudioContext = new (window.AudioContext || window.webkitAudioContext)()
+        const oscillator = testAudioContext.createOscillator()
+        const gainNode = testAudioContext.createGain()
+
         oscillator.connect(gainNode)
-        gainNode.connect(audioContext.destination)
-        
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime) // 800 Hz beep
+        gainNode.connect(testAudioContext.destination)
+
+        oscillator.frequency.setValueAtTime(800, testAudioContext.currentTime) // 800 Hz beep
         oscillator.type = 'sine'
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1)
-        
-        oscillator.start(audioContext.currentTime)
-        oscillator.stop(audioContext.currentTime + 1)
-        
+
+        gainNode.gain.setValueAtTime(0.3, testAudioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, testAudioContext.currentTime + 1)
+
+        oscillator.start(testAudioContext.currentTime)
+        oscillator.stop(testAudioContext.currentTime + 1)
+
+        // Clean up audio context after beep
         setTimeout(() => {
+          if (testAudioContext) {
+            testAudioContext.close()
+            testAudioContext = null
+          }
           isPlaying.value = false
         }, 1000)
-        
+
       } catch (error) {
         console.error('Failed to play test audio:', error)
         isPlaying.value = false
@@ -180,6 +193,31 @@ export default {
       }
     }
 
+    // Cleanup resources
+    const cleanup = () => {
+      // Clean up test audio context
+      if (testAudioContext) {
+        testAudioContext.close()
+        testAudioContext = null
+      }
+
+      // Clean up MP3 recorder
+      if (mp3Recorder) {
+        try {
+          mp3Recorder._cleanup()
+        } catch (error) {
+          console.error('Error cleaning up MP3 recorder:', error)
+        }
+        mp3Recorder = null
+      }
+
+      // Clean up recorded audio URL
+      if (recordedAudio.value) {
+        URL.revokeObjectURL(recordedAudio.value)
+        recordedAudio.value = null
+      }
+    }
+
     // Audio generation status
     const audioGenerationStatus = ref('unknown') // 'unknown', 'generating', 'completed'
     const isCheckingStatus = ref(false)
@@ -190,7 +228,7 @@ export default {
 
       try {
         isCheckingStatus.value = true
-        const response = await fetch(`/session/${props.sessionId}/status`)
+        const response = await fetch(`/session/${props.sessionId}/audio-status`)
         const data = await response.json()
 
         if (data.audio_generation === 'completed') {

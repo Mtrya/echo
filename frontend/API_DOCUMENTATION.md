@@ -16,7 +16,42 @@ Currently no authentication is required (for development).
 
 ## API Endpoints
 
-### 1. List Available Exams
+### 1. Root Endpoint
+
+**GET** `/`
+
+Get API information and available endpoints.
+
+**Response:**
+
+```json
+{
+  "message": "Echo - LLM-Powered Exam Platform API",
+  "version": "1.0.0",
+  "docs": "/docs",
+  "endpoints": {
+    "exams": "/exams/list",
+    "session": "/session/start",
+    "health": "/health"
+  }
+}
+```
+
+### 2. Health Check
+
+**GET** `/health`
+
+Check if the API is running properly.
+
+**Response:**
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+### 3. List Available Exams
 
 **GET** `/exams/list`
 
@@ -30,7 +65,7 @@ List all available exam YAML files.
 }
 ```
 
-### 2. Start Exam Session
+### 4. Start Exam Session
 
 **POST** `/session/start`
 
@@ -55,7 +90,7 @@ Start a new exam session. This loads the exam file and prepares all audio files.
 }
 ```
 
-### 3. Get Current Question
+### 5. Get Current Question
 
 **GET** `/session/{session_id}/question`
 
@@ -74,18 +109,18 @@ Get the current question for the session. Includes audio file path if available.
     "time_limit": 30,
     "tts": "What is 2 plus 2?"
   },
-  "audio_file_path": "../audio_cache/tts/bea39faa84a9823d21818aa1e104ecdd.mp3",
+  "audio_file_path": "tts/bea39faa84a9823d21818aa1e104ecdd.mp3",
   "question_index": 0,
   "is_last": false,
   "instruction": {
     "text": "This is a multiple choice section. Please listen to each question and select the correct answer.",
     "tts": "This is a multiple choice section. Please listen to each question and select the correct answer."
   },
-  "instruction_audio_file_path": "../audio_cache/tts/f4496987dabd9f56fa5c336c2ab63ff0.mp3"
+  "instruction_audio_file_path": "tts/f4496987dabd9f56fa5c336c2ab63ff0.mp3"
 }
 ```
 
-### 4. Submit Answer
+### 6. Submit Answer
 
 **POST** `/session/{session_id}/answer`
 
@@ -96,11 +131,11 @@ Submit an answer for the current question. Processing happens asynchronously.
 ```json
 {
   "answer_text": "A",  // For text-based answers (optional)
-  "audio_data": "base64-encoded-audio-data"  // For voice answers (optional)
+  "student_answer_audio": "base64-encoded-audio-data"  // For voice answers (optional)
 }
 ```
 
-**Note:** Audio data should be base64-encoded and sent as a string in the JSON payload. The backend will automatically decode it to bytes for processing. Only one of `answer_text` or `audio_data` should be provided based on question type.
+**Note:** Audio data should be base64-encoded and sent as a string in the JSON payload. The backend will automatically decode it to bytes for processing. Only one of `answer_text` or `student_answer_audio` should be provided based on question type.
 
 **Response:**
 
@@ -112,31 +147,30 @@ Submit an answer for the current question. Processing happens asynchronously.
 }
 ```
 
-### 5. Get Session Status
+### 7. Get Audio Generation Status
 
-**GET** `/session/{session_id}/status`
+**GET** `/session/{session_id}/audio-status`
 
-Get the current status of a session (audio generation and STT/LLM processing).
+Get the audio generation status for a session.
 
 **Response:**
 
 ```json
 {
   "audio_generation": "completed",
-  "processing": "idle"
+  "session_id": "a2a15ac2-f38b-406c-bd9b-ed53f8ad1d26"
 }
 ```
 
 **Status Values:**
 
 - `audio_generation`: "generating" | "completed"
-- `processing`: "idle" | "processing"
 
-### 6. Get Final Results
+### 8. Get Final Results
 
 **GET** `/session/{session_id}/results`
 
-Get the final exam results after all questions are completed.
+Get the final exam results with progressive processing status.
 
 **Response:**
 
@@ -145,23 +179,86 @@ Get the final exam results after all questions are completed.
   "session_id": "a2a15ac2-f38b-406c-bd9b-ed53f8ad1d26",
   "exam_title": "Comprehensive English and Math Exam",
   "total_score": 18.5,
-  "max_score": 20,
-  "percentage": 92.5,
+  "total_questions": 20,
+  "processed_count": 15,
+  "all_processed": false,
+  "duration_seconds": 77,
   "question_results": [
     {
       "question_index": 0,
       "question_id": "q1",
       "question_type": "multiple_choice",
       "question_text": "What is 2+2?",
-      "score": 1.0,
-      "feedback": "Correct! Well done!",
-      "explanation": "Detailed explanation here...",
-      "suggested_answer": null
+      "score": 5.0,
+      "feedback": "Excellent work! You got this math question right!",
+      "explanation": "The question asks what is 2+2. The correct answer is A: 4, which you selected correctly.",
+      "suggested_answer": null,
+      "student_answer": "A",
+      "reference_answer": "A"
+    },
+    {
+      "question_index": 1,
+      "question_id": "q2",
+      "question_type": "read_aloud",
+      "question_text": "Read this sentence aloud: The cat is sleeping on the mat.",
+      "score": 4.5,
+      "feedback": "Great pronunciation! You read the sentence very clearly.",
+      "explanation": "You pronounced all words correctly. The sentence was: The cat is sleeping on the mat.",
+      "suggested_answer": null,
+      "student_audio_path": "student_answers/session_id/q2_1234567890.mp3"
+    },
+    {
+      "question_index": 2,
+      "question_id": "q3",
+      "question_type": "quick_response",
+      "question_text": "What color is the sky on a clear day?",
+      "score": 3.0,
+      "feedback": "Good attempt! Your answer was mostly correct.",
+      "explanation": "You said 'blue sky' which is correct. The sky is blue on clear days.",
+      "suggested_answer": "The sky is blue.",
+      "student_audio_path": "student_answers/session_id/q3_1234567890.mp3"
+    },
+    {
+      "question_index": 3,
+      "question_id": "q4",
+      "question_type": "translation",
+      "question_text": "Translate to English: 我喜欢学习数学",
+      "score": 4.0,
+      "feedback": "Very good translation! You captured the meaning well.",
+      "explanation": "You translated '我喜欢学习数学' as 'I like to study math' which is accurate.",
+      "suggested_answer": "I like to study math.",
+      "student_audio_path": "student_answers/session_id/q4_1234567890.mp3"
     }
-  ],
-  "start_time": "2025-09-09T17:36:50.608006",
-  "end_time": "2025-09-09T17:38:07.679053",
-  "duration_seconds": 77
+  ]
+}
+```
+
+**Progressive Processing:**
+
+- `all_processed`: `false` while questions are still being processed
+- `processed_count`: Number of questions that have been graded
+- `question_results`: Only includes processed questions
+
+### 9. File Conversion
+
+**POST** `/convert/docx`
+
+Convert DOCX file to exam format (for future LLM-powered file conversion).
+
+**Request:**
+
+```json
+{
+  "file_path": "path/to/document.docx"
+}
+```
+
+**Response:**
+
+```json
+{
+  "exam_file_path": "converted_exam.yaml",
+  "message": "File converted successfully"
 }
 ```
 
@@ -173,6 +270,7 @@ Get the final exam results after all questions are completed.
 - **Input**: Mouse click (A, B, C, D)
 - **Answer Format**: Single letter ("A", "B", "C", "D")
 - **Features**: Automatic scoring, LLM provides explanations
+- **Response Data**: Includes `student_answer` and `reference_answer`
 
 ### 2. Read Aloud (`read_aloud`)
 
@@ -180,6 +278,7 @@ Get the final exam results after all questions are completed.
 - **Input**: Voice recording
 - **Answer Format**: Audio data (transcribed automatically)
 - **Features**: Text matching accuracy, pronunciation feedback
+- **Response Data**: Includes `student_audio_path` for playback
 
 ### 3. Quick Response (`quick_response`)
 
@@ -187,6 +286,7 @@ Get the final exam results after all questions are completed.
 - **Input**: Voice recording
 - **Answer Format**: Audio data (transcribed automatically)
 - **Features**: LLM grades relevance and grammar
+- **Response Data**: Includes `student_audio_path` for playback
 
 ### 4. Translation (`translation`)
 
@@ -194,22 +294,34 @@ Get the final exam results after all questions are completed.
 - **Input**: Voice recording
 - **Answer Format**: Audio data (transcribed automatically)
 - **Features**: LLM grades translation accuracy
+- **Response Data**: Includes `student_audio_path` for playback
 
 ## Audio File Handling
 
 ### TTS (Text-to-Speech) Audio
 
 - Generated at session start for all questions with `tts` field
-- Cached to avoid repeated API calls
-- File path provided in question response
+- Cached in `audio_cache/tts/` directory
+- Served via `/audio_cache/` endpoint
 - Format: MP3
+- File paths are relative to `audio_cache/`
 
 ### Student Audio Recordings
 
-- Saved during answer submission
-- Organized by session ID and question ID
-- Format: WebM
-- Automatically transcribed using STT
+- Saved during answer submission in `audio_cache/student_answers/`
+- Organized by session ID and question ID with timestamp
+- Format: MP3 (converted from WebM)
+- Served via `/audio_cache/` endpoint
+- File paths: `student_answers/{session_id}/{question_id}_{timestamp}.mp3`
+
+## Static Files
+
+### Audio Cache
+
+- **GET** `/audio_cache/{file_path}`
+- Serves cached TTS audio and student recordings
+- Example: `/audio_cache/tts/question_1.mp3`
+- Example: `/audio_cache/student_answers/session_id/q1_1234567890.mp3`
 
 ## Error Handling
 
@@ -235,7 +347,9 @@ Get the final exam results after all questions are completed.
 
 ```json
 {
-  "detail": "Error starting session: error details"
+  "error": "Internal Server Error",
+  "message": "An unexpected error occurred",
+  "details": "Error details"
 }
 ```
 
@@ -246,13 +360,14 @@ Get the final exam results after all questions are completed.
 1. **Start**: Call `/session/start` with exam file path
 2. **Questions**: Loop through questions using `/session/{id}/question`
 3. **Answers**: Submit answers using `/session/{id}/answer`
-4. **Results**: Get final results using `/session/{id}/results`
+4. **Results**: Get final results using `/session/{id}/results` (supports polling)
 
 ### 2. Audio Integration
 
 - **TTS Audio**: Use provided `audio_file_path` to play question audio
-- **Voice Recording**: Record audio and send as blob in `audio_data` field
-- **Audio Formats**: TTS = MP3, Student recordings = WebM
+- **Voice Recording**: Record audio and send as base64 in `student_answer_audio` field
+- **Audio Playback**: Use `/audio_cache/{path}` for student answer playback
+- **Audio Formats**: TTS = MP3, Student recordings = MP3
 
 ### 3. Timer Implementation
 
@@ -265,8 +380,17 @@ Get the final exam results after all questions are completed.
 - Store `session_id` for all subsequent calls
 - Track `question_index` to know current position
 - Use `is_last` to determine when to show results
+- Poll `/results` endpoint for progressive updates
 
-### 5. Error Handling
+### 5. Results Display
+
+- Show "Processing X out of N questions" while `all_processed` is false
+- Display questions progressively as they're processed
+- Add audio playback buttons for questions with `student_audio_path`
+- Show student vs reference answers for multiple choice
+- Include AI disclaimer for generated feedback
+
+### 6. Error Handling
 
 - Handle 400/404 errors gracefully
 - Show user-friendly error messages
@@ -303,14 +427,32 @@ async function submitAnswer(sessionId, answer) {
   return await response.json();
 }
 
-// Get results
+// Get results with polling
 async function getResults(sessionId) {
   const response = await fetch(`/session/${sessionId}/results`);
   return await response.json();
 }
+
+// Play student audio
+function playStudentAudio(audioPath) {
+  const audio = new Audio(`/audio_cache/${audioPath}`);
+  audio.play();
+}
 ```
 
+## Environment Variables
+
+The following environment variables are required:
+
+- `SILICONFLOW_API_KEY`: API key for SiliconFlow services
+
 ## Testing Endpoints
+
+### Interactive Documentation
+
+**GET** `/docs`
+
+Interactive Swagger UI documentation for testing API endpoints.
 
 ### Health Check
 
@@ -328,6 +470,13 @@ async function getResults(sessionId) {
 
 ```json
 {
-  "message": "Echo - LLM-Powered Exam Platform API"
+  "message": "Echo - LLM-Powered Exam Platform API",
+  "version": "1.0.0",
+  "docs": "/docs",
+  "endpoints": {
+    "exams": "/exams/list",
+    "session": "/session/start",
+    "health": "/health"
+  }
 }
 ```

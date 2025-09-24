@@ -223,26 +223,28 @@ Please read this text exactly as written, without any opening or greeting."""
     async def _grade_read_aloud(self, request: GradingInput) -> GradingResult:
         """Grade student answer for read-aloud questions"""
         # Cache student audio for debugging/review
-        self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
+        audio_path = self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
 
         # Prepare grading prompt for read-aloud
-        grading_prompt = f"""You are grading a student's read-aloud performance.
+        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a student's read-aloud performance.
 
 Text: {request.question_text}
 
 Please evaluate the student's pronunciation, fluency, and accuracy based on their audio recording.
 
-Provide a score from 0-10 where:
-- 8-10: Excellent pronunciation and fluency, minimal errors
-- 6-7: Good performance with some pronunciation issues
-- 4-5: Fair performance, noticeable pronunciation problems
-- 0-3: Poor performance, significant pronunciation issues
+Provide a score from 0-5 where:
+- 4.0-5.0: Excellent pronunciation and fluency, minimal errors
+- 3.0-3.5: Good performance with some pronunciation issues
+- 2.0-2.5: Fair performance, noticeable pronunciation problems
+- 0.0-1.5: Poor performance, significant pronunciation issues
+
+If you can't hear anything or the audio is extremely short, provide a score of 0.0 and feedback. This happens when the student feels nervous.
 
 Respond in JSON format:
 {{
-    "score": <number between 0-10>,
-    "feedback": "<specific feedback on pronunciation and fluency>",
-    "explanation": "<detailed explanation of the evaluation>"
+    "score": <number between 0-5>,
+    "feedback": "<specific feedback on pronunciation and fluency in Chinese>",
+    "explanation": "<the exact content of the student's response and detailed explanation of the evaluation in Chinese>"
 }}"""
 
         # Process request
@@ -267,7 +269,8 @@ Respond in JSON format:
             return GradingResult(
                 score=float(grading_data["score"]),
                 feedback=grading_data["feedback"],
-                explanation=grading_data["explanation"]
+                explanation=grading_data["explanation"],
+                student_audio_path=str(audio_path)
             )
         except:
             return GradingResult(
@@ -281,7 +284,7 @@ Respond in JSON format:
         student_answer = request.student_answer_text
 
         # Prepare grading prompt for multiple choice
-        grading_prompt = f"""You are grading a multiple-choice question.
+        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a multiple-choice question. You're aware that doing math questions described in English is hard for 10-year-old Chinese kids, be encouraging even if the answer is wrong.
 
 Question: {request.question_text}
 
@@ -295,14 +298,14 @@ Student Answer: {student_answer}
 Please evaluate if the student selected the correct option. The student should identify the letter (A, B, C, or D) corresponding to the correct answer.
 
 Score:
-- 10 points: Correct answer identified
-- 0 points: Incorrect answer or unclear response
+- 5.0: Correct answer
+- 0.0: Incorrect answer or no answer provided
 
 Respond in JSON format:
 {{
-    "score": <10 or 0>,
-    "feedback": "<specific feedback about their answer choice>",
-    "explanation": "<explanation of the correct answer and why the student's choice was correct/incorrect>"
+    "score": <5 or 0>,
+    "feedback": "<specific feedback about their answer choice in Chinese>",
+    "explanation": "<explanation of the correct answer and why the student's choice was correct/incorrect in Chinese>"
 }}"""
 
         # Process request
@@ -339,35 +342,34 @@ Respond in JSON format:
     async def _grade_quick_response(self, request: GradingInput) -> GradingResult:
         """Grade student answer for quick-response questions"""
         # Cache student audio for debugging/review
-        self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
+        audio_path = self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
 
         # Prepare grading prompt for quick response
-        grading_prompt = f"""You are grading a student's quick verbal response to an audio question.
+        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a student's quick verbal response to an audio question. You're aware of the fact that quick-response questions are hard for non-native speakers, be encouraging even if the response is not perfect.
 
 Question Context: {request.question_text}
 
-Reference Answer: {request.reference_answer}
-
 Please evaluate the student's verbal response based on:
 1. Relevance to the question
-2. Accuracy of information
-3. Clarity of expression
-4. Appropriateness for a 10-year-old Chinese student learning English
+2. Clarity of expression
+3. Fluency and Pronounciation
 
 The student heard the question in audio format and responded verbally. Their response should be evaluated for content comprehension and communication effectiveness.
 
-Provide a score from 0-10 where:
-- 8-10: Excellent, relevant, and accurate response
-- 6-7: Good response with minor issues
-- 4-5: Partially correct or somewhat relevant
-- 0-3: Incorrect, irrelevant, or incomprehensible
+Provide a score from 0-5 where:
+- 4.0-5.0: Excellent, relevant, and accurate response
+- 3.0-3.5: Good response with minor issues
+- 2.0-2.5: Partially correct or somewhat relevant
+- 0.0-1.5: Incorrect, irrelevant, or incomprehensible
+
+If you can't hear anything meaningful or the audio is extremely short, provide a score of 0.0 and feedback. This happens when the student's nervous or doesn't know how to answer.
 
 Respond in JSON format:
 {{
-    "score": <number between 0-10>,
-    "feedback": "<specific feedback about the content and delivery>",
-    "explanation": "<detailed evaluation of the response>",
-    "suggested_answer": "<an example of a good answer to this question if score < 3>"
+    "score": <number between 0-5>,
+    "feedback": "<specific feedback about the content and delivery in Chinese>",
+    "explanation": "<the exact content of student's response and detailed evaluation of the response in Chinese>",
+    "suggested_answer": "<an example of a good answer to this question If score < 1, always in English>"
 }}"""
 
         # Process request
@@ -393,7 +395,8 @@ Respond in JSON format:
                 score=float(grading_data["score"]),
                 feedback=grading_data["feedback"],
                 explanation=grading_data["explanation"],
-                suggested_answer=grading_data.get("suggested_answer")
+                suggested_answer=grading_data.get("suggested_answer"),
+                student_audio_path=str(audio_path)
             )
         except:
             return GradingResult(
@@ -405,33 +408,32 @@ Respond in JSON format:
     async def _grade_translation(self, request: GradingInput) -> GradingResult:
         """Grade student answer for translation questions"""
         # Cache student audio for debugging/review
-        self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
+        audio_path = self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
 
         # Prepare grading prompt for translation
-        grading_prompt = f"""You are grading a student's translation performance.
+        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a student's translation performance. You're aware of the fact that translation questions are hard for non-native speakers, be encouraging even if the translation is not perfect.
 
 Chinese Text: {request.question_text}
-
-Reference English Translation: {request.reference_answer}
 
 The student was asked to translate the Chinese text into English and provide their answer verbally. Please evaluate their translation based on:
 1. Accuracy of translation
 2. Grammar and vocabulary usage
 3. Pronunciation and clarity of spoken English
-4. Naturalness of the English expression
 
-Provide a score from 0-10 where:
-- 8-10: Excellent translation, accurate grammar, natural expression
-- 6-7: Good translation with minor errors
-- 4-5: Fair translation with noticeable issues
-- 0-3: Poor translation, significant errors
+Provide a score from 0-5 where:
+- 4.0-5.0: Excellent translation, accurate grammar, natural expression
+- 3.0-3.5: Good translation with minor errors
+- 2.0-2.5: Fair translation with noticeable issues
+- 0.0-1.5: Poor translation, significant errors
+
+If you can't hear anything meaningful or the audio is extremely short, provide a score of 0.0 and feedback. This happens when the student's nervous or doesn't know how to answer.
 
 Respond in JSON format:
 {{
-    "score": <number between 0-10>,
-    "feedback": "<specific feedback on translation accuracy and spoken English>",
-    "explanation": "<detailed evaluation of the translation performance>",
-    "suggested_answer": "<an example of a good English translation if score < 3>"
+    "score": <number between 0-5>,
+    "feedback": "<specific feedback on translation accuracy and spoken English in Chinese>",
+    "explanation": "<the exact content of the student's response and detailed evaluation of the translation performance in Chinese>",
+    "suggested_answer": "<an example of a good English translation If score < 1, always in English>"
 }}"""
 
         # Process request
@@ -457,7 +459,8 @@ Respond in JSON format:
                 score=float(grading_data["score"]),
                 feedback=grading_data["feedback"],
                 explanation=grading_data["explanation"],
-                suggested_answer=grading_data.get("suggested_answer")
+                suggested_answer=grading_data.get("suggested_answer"),
+                student_audio_path=str(audio_path)
             )
         except:
             return GradingResult(
