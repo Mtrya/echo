@@ -7,20 +7,18 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 try:
     from .models import (
-        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput, STTInput,
+        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput,
         SessionStartRequest, SessionResponse, QuestionResponse, AnswerSubmission,
         AnswerResponse, FinalResult
     )
-    from .llm_client import LLMClient
-    from .speech_client import SpeechClient
+    from .omni_client import OmniClient
 except ImportError:
     from models import (
-        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput, STTInput,
+        Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput,
         SessionStartRequest, SessionResponse, QuestionResponse, AnswerSubmission,
         AnswerResponse, FinalResult
     )
-    from llm_client import LLMClient
-    from speech_client import SpeechClient
+    from omni_client import OmniClient
 
 
 class ExamSession:
@@ -99,8 +97,7 @@ class ExamSession:
 class ExamManager:
     def __init__(self):
         self.sessions: Dict[str, ExamSession] = {}
-        self.llm_client = LLMClient()
-        self.speech_client = SpeechClient()
+        self.omni_client = OmniClient()
     
     async def start_session(self, request: SessionStartRequest) -> SessionResponse:
         """Start a new exam session"""
@@ -308,8 +305,8 @@ class ExamManager:
         for section_type, instruction in session.exam.section_instructions.items():
             if instruction.tts:
                 try:
-                    tts_request = TTSInput(text=instruction.tts, voice="male")
-                    tts_result = await self.speech_client.text_to_speech(tts_request)
+                    tts_request = TTSInput(text=instruction.tts, voice="Elias")
+                    tts_result = await self.omni_client.text_to_speech(tts_request)
                     # Store with section_type prefix to avoid conflicts
                     audio_files[f"section_{section_type}"] = tts_result.audio_file_path
                     print(f"Generated audio for {section_type} instruction: {tts_result.audio_file_path}")
@@ -321,13 +318,13 @@ class ExamManager:
             if question.type == 'quick_response':
                 # For quick response, the text is the question audio
                 try:
-                    tts_request = TTSInput(text=question.text, voice="female")
-                    tts_result = await self.speech_client.text_to_speech(tts_request)
+                    tts_request = TTSInput(text=question.text, voice="Cherry")
+                    tts_result = await self.omni_client.text_to_speech(tts_request)
                     audio_files[question.id] = tts_result.audio_file_path
                     print(f"Generated audio for quick_response question {question.id}: {tts_result.audio_file_path}")
                 except Exception as e:
                     print(f"Failed to generate audio for question {question.id}: {e}")
-        
+
         session.audio_files = audio_files
     
     async def _process_answer_async(self, session: ExamSession, question: Question, answer_data: AnswerSubmission):
@@ -336,27 +333,19 @@ class ExamManager:
         session.add_processing_task(task_id)
 
         try:
-            # Transcribe audio if needed
-            answer_text = answer_data.answer_text
-            if answer_data.audio_data and not answer_text:
-                stt_request = STTInput(
-                    audio_data=answer_data.audio_data,
-                    session_id=session.session_id,
-                    question_id=question.id
-                )
-                stt_result = await self.speech_client.speech_to_text(stt_request)
-                answer_text = stt_result.text
-
-            # Grade the answer
+            # Grade the answer using unified omni client
             grading_input = GradingInput(
+                session_id=session.session_id,
+                question_id=question.id,
                 question_type=question.type,
-                student_answer=answer_text or "",
+                student_answer_text=answer_data.answer_text,
+                student_answer_audio=answer_data.audio_data,
                 reference_answer=question.reference_answer,
                 question_text=question.text,
                 options=question.options
             )
 
-            grading_result = await self.llm_client.grade_answer(grading_input)
+            grading_result = await self.omni_client.grade_answer(grading_input)
             session.add_result(grading_result)
 
         except Exception as e:

@@ -21,10 +21,13 @@ class Exam(BaseModel):
     section_instructions: Dict[str, SectionInstruction]  # Key: question type, value: instruction
     questions: List[Question]
 
-# API Processing Models
+# Omni Client Processing Models
 class GradingInput(BaseModel):
+    session_id: str
+    question_id: str
     question_type: str  # "multiple_choice", "read_aloud", "quick_response", "translation"
-    student_answer: str
+    student_answer_text: Optional[str] = None
+    student_answer_audio: Optional[str] = None
     reference_answer: Optional[str] = None
     question_text: str
     options: Optional[List[str]] = None # ["A:6","B:7","C:8","D:9"], for multiple choice
@@ -35,23 +38,13 @@ class GradingResult(BaseModel):
     explanation: str
     suggested_answer: Optional[str] = None  # For quick response and translation questions
 
-# Speech Processing Models
 class TTSInput(BaseModel):
     text: str
-    voice: str = "female" # female -> claire; male -> charles
+    voice: str = "Cherry"
 
 class TTSOutput(BaseModel):
     text: str
     audio_file_path: str  # path to saved audio file (.mp3)
-
-class STTInput(BaseModel):
-    audio_data: bytes # direct binary data
-    session_id: str
-    question_id: str
-
-class STTOutput(BaseModel):
-    text: str
-    audio_file_path: str # path to saved audio file (.webm)
 
 # Session Management Models
 class SessionStartRequest(BaseModel):
@@ -73,7 +66,7 @@ class QuestionResponse(BaseModel):
 
 class AnswerSubmission(BaseModel):
     answer_text: Optional[str] = None
-    audio_data: Optional[bytes] = None
+    audio_data: Optional[str] = None  # base64-encoded audio data
 
 class AnswerResponse(BaseModel):
     message: str
