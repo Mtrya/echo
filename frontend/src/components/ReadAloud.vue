@@ -48,6 +48,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import Mp3Recorder, { blobToBase64 } from '../utils/mp3Recorder.js'
 
 export default {
   name: 'ReadAloud',
@@ -70,10 +71,8 @@ export default {
     const timeRemaining = ref(0)
     const countdownText = ref('3')
 
-    // Media recorder and audio stream
-    let mediaRecorder = null
-    let audioChunks = []
-    let audioStream = null
+    // MP3 recorder
+    let mp3Recorder = null
     let recordingTimer = null
     let thinkingTimer = null
 
@@ -111,7 +110,7 @@ export default {
       countdownText.value = '3'
 
       // Reset audio chunks
-      audioChunks = []
+      // audioChunks = []  // No longer needed with MP3 recorder
 
       console.log('ReadAloud: State reset complete')
     }
@@ -131,25 +130,19 @@ export default {
       }
     }
 
-    // Initialize audio recording permissions
+    // Initialize MP3 recorder
     const initializeAudio = async () => {
       try {
-        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-
-        mediaRecorder = new MediaRecorder(audioStream)
-
-        mediaRecorder.ondataavailable = (event) => {
-          audioChunks.push(event.data)
+        // Check browser support
+        if (!Mp3Recorder.isSupported()) {
+          throw new Error('MP3 recording is not supported in this browser')
         }
 
-        mediaRecorder.onstop = () => {
-          // Recording stopped, submit the answer
-          submitAnswer()
-        }
-
-        console.log('Audio initialized successfully')
+        // Create new MP3 recorder instance
+        mp3Recorder = new Mp3Recorder()
+        console.log('MP3 recorder initialized successfully')
       } catch (error) {
-        console.error('Failed to initialize audio:', error)
+        console.error('Failed to initialize MP3 recorder:', error)
         throw error
       }
     }
@@ -173,14 +166,19 @@ export default {
     }
 
     // Start recording phase
-    const startRecordingPhase = () => {
+    const startRecordingPhase = async () => {
       phase.value = 'recording'
       timeRemaining.value = props.currentQuestion.time_limit || 15
 
-      // Start recording
-      if (mediaRecorder && mediaRecorder.state === 'inactive') {
-        audioChunks = []
-        mediaRecorder.start()
+      // Start MP3 recording
+      try {
+        if (mp3Recorder) {
+          await mp3Recorder.start()
+        }
+      } catch (error) {
+        console.error('Failed to start MP3 recording:', error)
+        submitEmptyAnswer()
+        return
       }
 
       // Start countdown timer
@@ -194,31 +192,35 @@ export default {
     }
 
     // Stop recording manually
-    const stopRecording = () => {
+    const stopRecording = async () => {
       if (recordingTimer) {
         clearInterval(recordingTimer)
         recordingTimer = null
       }
 
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop()
-      }
-
-      if (audioStream) {
-        audioStream.getTracks().forEach(track => track.stop())
+      // Stop MP3 recording and submit answer
+      if (mp3Recorder) {
+        try {
+          const mp3Blob = await mp3Recorder.stop()
+          await submitAnswer(mp3Blob)
+        } catch (error) {
+          console.error('Failed to stop MP3 recording:', error)
+          submitEmptyAnswer()
+        }
       }
     }
 
     // Submit the recorded answer
-    const submitAnswer = async () => {
+    const submitAnswer = async (mp3Blob) => {
       try {
-        // Create audio blob from recorded chunks
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' })
+        if (!mp3Blob) {
+          throw new Error('No audio blob provided')
+        }
 
-        // Convert blob to base64
-        const base64Audio = await blobToBase64(audioBlob)
+        // Convert MP3 blob to base64
+        const base64Audio = await blobToBase64(mp3Blob)
 
-        // Submit as JSON with base64 encoded audio data
+        // Submit as JSON with base64 encoded MP3 data
         const response = await fetch(`/session/${props.sessionId}/answer`, {
           method: 'POST',
           headers: {
@@ -230,7 +232,7 @@ export default {
         })
 
         if (response.ok) {
-          console.log('Answer submitted successfully')
+          console.log('MP3 answer submitted successfully')
 
           // Immediately emit completion event - don't wait for processing
           emit('complete', {
@@ -243,7 +245,7 @@ export default {
         }
 
       } catch (error) {
-        console.error('Failed to submit answer:', error)
+        console.error('Failed to submit MP3 answer:', error)
         emit('complete', {
           sessionId: props.sessionId,
           questionIndex: props.currentQuestion.question_index,
@@ -263,20 +265,6 @@ export default {
       })
     }
 
-    // Convert blob to base64
-    const blobToBase64 = (blob) => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          // Extract base64 data from the result (remove data URL prefix)
-          const base64 = reader.result.split(',')[1]
-          resolve(base64)
-        }
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-    }
-
     // Cleanup resources
     const cleanup = () => {
       if (thinkingTimer) {
@@ -288,8 +276,19 @@ export default {
         clearInterval(recordingTimer)
         recordingTimer = null
       }
+
+      // Cleanup MP3 recorder if it exists
+      if (mp3Recorder) {
+        try {
+          mp3Recorder._cleanup()
+        } catch (error) {
+          console.error('Error cleaning up MP3 recorder:', error)
+        }
+        mp3Recorder = null
+      }
     }
 
+    
     return {
       phase,
       timeRemaining,

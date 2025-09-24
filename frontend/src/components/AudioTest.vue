@@ -35,6 +35,7 @@
 
 <script>
 import { ref, onMounted } from 'vue'
+import Mp3Recorder from '../utils/mp3Recorder.js'
 
 export default {
   name: 'AudioTest',
@@ -56,10 +57,8 @@ export default {
     const isPlayingRecording = ref(false)
     const recordedAudio = ref(null)
     
-    // Media recorder and audio stream
-    let mediaRecorder = null
-    let audioChunks = []
-    let audioStream = null
+    // MP3 recorder
+    let mp3Recorder = null
 
     // Initialize audio context on component mount
     onMounted(async () => {
@@ -71,30 +70,17 @@ export default {
     // Initialize audio permissions and setup
     const initializeAudio = async () => {
       try {
-        // Request microphone permissions
-        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        
-        // Setup media recorder
-        mediaRecorder = new MediaRecorder(audioStream)
-        
-        mediaRecorder.ondataavailable = (event) => {
-          audioChunks.push(event.data)
+        // Check browser support
+        if (!Mp3Recorder.isSupported()) {
+          throw new Error('MP3 recording is not supported in this browser')
         }
-        
-        mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' })
-          recordedAudio.value = URL.createObjectURL(audioBlob)
-          audioChunks = []
-          
-          // Auto-play the recording after stopping
-          setTimeout(() => {
-            playRecordedAudio()
-          }, 500)
-        }
-        
-        console.log('Audio initialized successfully')
+
+        // Create new MP3 recorder instance
+        mp3Recorder = new Mp3Recorder()
+
+        console.log('MP3 recorder initialized successfully')
       } catch (error) {
-        console.error('Failed to initialize audio:', error)
+        console.error('Failed to initialize MP3 recorder:', error)
         alert('Please allow microphone access to use this feature')
       }
     }
@@ -134,22 +120,42 @@ export default {
     }
 
     // Toggle recording on/off
-    const toggleRecording = () => {
+    const toggleRecording = async () => {
       if (isRecording.value) {
         // Stop recording
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-          mediaRecorder.stop()
-        }
-        if (audioStream) {
-          audioStream.getTracks().forEach(track => track.stop())
+        if (mp3Recorder) {
+          try {
+            const mp3Blob = await mp3Recorder.stop()
+            recordedAudio.value = URL.createObjectURL(mp3Blob)
+            mp3Recorder = null  // Reset for next recording
+
+            // Auto-play the recording after stopping
+            setTimeout(() => {
+              playRecordedAudio()
+            }, 500)
+          } catch (error) {
+            console.error('Failed to stop MP3 recording:', error)
+          }
         }
         isRecording.value = false
       } else {
         // Start recording
-        if (mediaRecorder && mediaRecorder.state === 'inactive') {
-          audioChunks = []
-          mediaRecorder.start()
-          isRecording.value = true
+        if (mp3Recorder) {
+          try {
+            await mp3Recorder.start()
+            isRecording.value = true
+          } catch (error) {
+            console.error('Failed to start MP3 recording:', error)
+          }
+        } else {
+          // Create new recorder instance
+          mp3Recorder = new Mp3Recorder()
+          try {
+            await mp3Recorder.start()
+            isRecording.value = true
+          } catch (error) {
+            console.error('Failed to start MP3 recording:', error)
+          }
         }
       }
     }
