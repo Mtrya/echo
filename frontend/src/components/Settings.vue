@@ -1,5 +1,5 @@
 <template>
-  <div class="settings" :class="currentTheme">
+  <div class="settings">
     <div class="settings-header">
       <h1>Settings</h1>
       <button @click="$emit('close-settings')" class="close-btn">×</button>
@@ -72,7 +72,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Response Voice (for feedback and questions)</label>
+          <label>Response Voice (for quick-response questions)</label>
           <select v-model="settings.models.response_voice">
             <option v-for="voice in availableVoices" :key="voice" :value="voice">
               {{ voice }}
@@ -124,20 +124,6 @@
         </div>
       </div>
 
-      <!-- Theme Settings -->
-      <div v-if="currentTab === 'theme'" class="tab-content">
-        <div class="theme-options">
-          <div
-            v-for="theme in options.themes"
-            :key="theme"
-            @click="settings.ui.theme = theme"
-            :class="['theme-option', { active: settings.ui.theme === theme }]"
-          >
-            <div class="theme-preview" :class="theme"></div>
-            <div class="theme-name">{{ theme }}</div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="settings-actions">
@@ -169,8 +155,7 @@ export default {
     const tabs = [
       { id: 'api', name: 'API' },
       { id: 'models', name: 'Models' },
-      { id: 'timers', name: 'Timers' },
-      { id: 'theme', name: 'Theme' }
+      { id: 'timers', name: 'Timers' }
     ]
 
     const settings = reactive({
@@ -189,16 +174,12 @@ export default {
         quick_response: 15,
         translation: 30
       },
-      ui: {
-        theme: 'default'
-      }
-    })
+      })
 
     const originalSettings = reactive({})
     const options = reactive({
       omni_models: [],
       vision_models: [],
-      themes: [],
       voice_options: {}
     })
 
@@ -206,8 +187,7 @@ export default {
       return options.voice_options[settings.models.omni_model] || options.voice_options['qwen3-omni-flash'] || []
     })
 
-    const currentTheme = computed(() => settings.ui.theme)
-
+  
     const hasChanges = computed(() => {
       return JSON.stringify(settings) !== JSON.stringify(originalSettings)
     })
@@ -222,7 +202,8 @@ export default {
           Object.assign(settings, data.config)
           Object.assign(originalSettings, JSON.parse(JSON.stringify(data.config)))
           Object.assign(options, data.options)
-        }
+
+          }
       } catch (error) {
         console.error('Failed to load settings:', error)
       }
@@ -284,6 +265,7 @@ export default {
           saveResult.value = { success: true, message: 'Settings saved successfully' }
           Object.assign(originalSettings, JSON.parse(JSON.stringify(settings)))
           emit('settings-updated', settings)
+          emit('close-settings')
         } else {
           saveResult.value = { success: false, message: result.errors.join(', ') }
         }
@@ -301,19 +283,14 @@ export default {
       settings.models.vision_model = 'qwen3-vl-plus'
       settings.models.instruction_voice = 'Elias'
       settings.models.response_voice = 'Cherry'
-      settings.time_limits.multiple_choice = 30
-      settings.time_limits.read_aloud = 15
-      settings.time_limits.quick_response = 15
-      settings.time_limits.translation = 30
-      settings.ui.theme = 'green'
+      settings.time_limits.multiple_choice = 20
+      settings.time_limits.read_aloud = 10
+      settings.time_limits.quick_response = 10
+      settings.time_limits.translation = 20
       // Restore API key
       settings.api.dashscope_key = currentApiKey
     }
 
-    // Watch for theme changes and apply them
-    watch(() => settings.ui.theme, (newTheme) => {
-      document.body.className = `theme-${newTheme}`
-    })
 
     onMounted(() => {
       loadSettings()
@@ -326,7 +303,6 @@ export default {
       originalSettings,
       options,
       availableVoices,
-      currentTheme,
       isTesting,
       isSaving,
       apiTestResult,
@@ -351,15 +327,6 @@ export default {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.settings.dark {
-  background: #2d2d2d;
-  color: #ffffff;
-}
-
-.settings.nature {
-  background: #f0f8f0;
-  color: #2d4a2d;
-}
 
 .settings-header {
   display: flex;
@@ -373,13 +340,6 @@ export default {
   color: #2c3e50;
 }
 
-.settings.dark .settings-header h1 {
-  color: #ffffff;
-}
-
-.settings.nature .settings-header h1 {
-  color: #2d4a2d;
-}
 
 .close-btn {
   background: none;
@@ -444,12 +404,6 @@ export default {
   font-size: 14px;
 }
 
-.settings.dark .setting-group input,
-.settings.dark .setting-group select {
-  background: #3d3d3d;
-  border-color: #555;
-  color: #ffffff;
-}
 
 .api-input-group {
   display: flex;
