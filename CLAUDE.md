@@ -253,7 +253,6 @@ echo/
 
 TODOs:
 
-- settings (backend + frontend)
-- get started (backend + frontend)
-- audio testing page (frontend)
+- enhance audio testing page (frontend)
+- prompt engineering file_conversion.txt with few-shot examples
 - packaging
