@@ -246,13 +246,14 @@ echo/
 ## Engineering Style
 
 - No over engineering, even dumb implementation is better than over engineering.
-
 - Always ask the user to start or restart the server.
 - Don't ever return mock data. If there's an error, let it expose naturally instead of pretending that everything is working all right.
 - Always check API_DOCUMENTATION.md when implementing frontend services.
+- try-except blocks are **FORBIDDEN**.
 
 TODOs:
 
-- file conversion
-- settings implementation
+- settings (backend + frontend)
+- get started (backend + frontend)
+- audio testing page (frontend)
 - packaging

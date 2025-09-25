@@ -64,3 +64,6 @@ exams/*
 
 audio_cache/*
 !audio_cache/tts
+
+config.yaml
+test_files

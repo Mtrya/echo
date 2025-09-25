@@ -241,15 +241,16 @@ Get the final exam results with progressive processing status.
 
 ### 9. File Conversion
 
-**POST** `/convert/docx`
+**POST** `/convert/file`
 
-Convert DOCX file to exam format (for future LLM-powered file conversion).
+Convert file to exam format using qwen3-vl-plus.
 
 **Request:**
 
 ```json
 {
-  "file_path": "path/to/document.docx"
+  "file_path": "path/to/document",
+  "output_file": "output_exam.yaml"
 }
 ```
 
@@ -259,6 +260,30 @@ Convert DOCX file to exam format (for future LLM-powered file conversion).
 {
   "exam_file_path": "converted_exam.yaml",
   "message": "File converted successfully"
+}
+```
+
+### 10. Rename Exam File
+
+**POST** `/rename-exam`
+
+Rename an exam file in the exams directory.
+
+**Request:**
+
+```json
+{
+  "old_name": "exam-2099.yaml",
+  "new_name": "new-exam-name.yaml"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Exam file renamed successfully from 'exam-2099.yaml' to 'new-exam-name.yaml'"
 }
 ```
 
