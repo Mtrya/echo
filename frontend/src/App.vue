@@ -9,7 +9,15 @@
     <main class="main-content">
       <!-- Home Page -->
       <div v-if="currentPage === 'home'">
-        <HomePage @start-exam="handleStartExam" />
+        <HomePage @start-exam="handleStartExam" @file-converter="currentPage = 'file-converter'" />
+      </div>
+
+      <!-- File Converter Page -->
+      <div v-else-if="currentPage === 'file-converter'">
+        <FileConverter
+          :key="'file-converter'"
+          @go-home="currentPage = 'home'"
+        />
       </div>
 
       <!-- Audio Test Page -->
@@ -99,6 +107,7 @@ import MultipleChoice from './components/MultipleChoice.vue'
 import QuickResponse from './components/QuickResponse.vue'
 import Translation from './components/Translation.vue'
 import Results from './components/Results.vue'
+import FileConverter from './components/FileConverter.vue'
 
 export default {
   name: 'App',
@@ -110,7 +119,8 @@ export default {
     MultipleChoice,
     QuickResponse,
     Translation,
-    Results
+    Results,
+    FileConverter
   },
   setup() {
     // Navigation state
@@ -121,11 +131,45 @@ export default {
     const currentInstructionAudio = ref(null)
     const currentQuestionType = ref(null)
 
-    // Handle exam start event from HomePage component
-    const handleStartExam = (examData) => {
-      sessionId.value = examData.sessionId
-      currentPage.value = 'audio-test' // Navigate to audio test page
-      console.log('Exam started:', examData)
+    // Handle exam start event from components
+    const handleStartExam = async (examData) => {
+      console.log('Exam start request:', examData)
+
+      // Check if we have a session ID (from existing exam) or exam file (from file converter)
+      if (examData.sessionId) {
+        // Existing exam with session ID
+        sessionId.value = examData.sessionId
+        currentPage.value = 'audio-test'
+      } else if (examData.examFile) {
+        // New exam from file converter - start session first
+        try {
+          const response = await fetch('/session/start', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              exam_file_path: examData.examFile
+            })
+          })
+
+          const data = await response.json()
+
+          if (data.session_id) {
+            sessionId.value = data.session_id
+            currentPage.value = 'audio-test'
+          } else {
+            console.error('Failed to start exam session')
+            currentPage.value = 'home'
+          }
+        } catch (error) {
+          console.error('Failed to start exam:', error)
+          currentPage.value = 'home'
+        }
+      } else {
+        console.error('Invalid exam data:', examData)
+        currentPage.value = 'home'
+      }
     }
 
     // Start the first question

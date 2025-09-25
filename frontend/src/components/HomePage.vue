@@ -1,15 +1,19 @@
 <template>
   <div class="home-page">
-    <div class="button-column">      
-      <!-- Placeholder Buttons -->
+    <div class="button-column">
+      <!-- Settings Button -->
       <button class="btn btn-secondary">Settings</button>
-      <button class="btn btn-secondary">Files</button>
-      
+
+      <!-- File Converter Button -->
+      <button @click="openFileConverter" class="btn btn-secondary">
+        📁 Create Exam from Files
+      </button>
+
       <!-- Exam Selection -->
       <button @click="showExamList = true" class="btn btn-primary">
         Select Exam
       </button>
-      
+
       <!-- Start Exam -->
       <button @click="startExam" class="btn btn-primary">
         {{ selectedExam ? `Start Exam: ${selectedExam}` : 'Start Exam' }}
@@ -50,7 +54,7 @@ import { ref, onMounted } from 'vue'
 
 export default {
   name: 'HomePage',
-  emits: ['start-exam'], // Declare that this component can emit events
+  emits: ['start-exam', 'file-converter'], // Declare that this component can emit events
   setup(_, { emit }) {
     // State management
     const showExamList = ref(false)
@@ -83,6 +87,11 @@ export default {
       showExamList.value = false
     }
 
+    // Open file converter
+    const openFileConverter = () => {
+      emit('file-converter')
+    }
+
     // Start the exam
     const startExam = async () => {
       if (!selectedExam.value) {
@@ -101,9 +110,9 @@ export default {
             exam_file_path: selectedExam.value
           })
         })
-        
+
         const data = await response.json()
-        
+
         if (data.session_id) {
           // Emit event to parent component with session data
           emit('start-exam', {
@@ -128,6 +137,7 @@ export default {
       selectedExam,
       availableExams,
       selectExam,
+      openFileConverter,
       startExam
     }
   }
