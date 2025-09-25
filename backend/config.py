@@ -23,9 +23,7 @@ class Config:
         "qwen2.5-omni-7b": ["Ethan", "Chelsie"]
     }
 
-    # Theme options
-    THEMES = ["default", "dark", "nature"]
-
+  
     def __init__(self):
         self.config_file = Path(__file__).parent.parent / "config.yaml"
         self.config = self._load_default_config()
@@ -40,17 +38,14 @@ class Config:
             "models": {
                 "omni_model": "qwen3-omni-flash",
                 "vision_model": "qwen3-vl-plus",
-                "instruction_voice": "Cherry",
+                "instruction_voice": "Elias",
                 "response_voice": "Cherry"
             },
             "time_limits": {
-                "multiple_choice": 30,
-                "read_aloud": 15,
-                "quick_response": 15,
-                "translation": 30
-            },
-            "ui": {
-                "theme": "default"
+                "multiple_choice": 20,
+                "read_aloud": 10,
+                "quick_response": 10,
+                "translation": 20
             }
         }
 
@@ -161,11 +156,7 @@ class Config:
                 if not isinstance(value, int) or value < 5 or value > 300:
                     errors.append(f"Time limit for {key} must be between 5 and 300 seconds")
 
-        # Validate theme
-        if "ui" in config and "theme" in config["ui"]:
-            if config["ui"]["theme"] not in self.THEMES:
-                errors.append(f"Invalid theme. Must be one of: {', '.join(self.THEMES)}")
-
+  
         return errors
 
     def test_api_connection(self, api_key: str) -> Dict[str, Any]:

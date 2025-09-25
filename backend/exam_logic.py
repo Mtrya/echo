@@ -99,7 +99,66 @@ class ExamSession:
 class ExamManager:
     def __init__(self):
         self.sessions: Dict[str, ExamSession] = {}
-        self.omni_client = OmniClient(config.get("models.omni_model", "qwen3-omni-flash"))
+        self._omni_client = None
+        self.completed_exams_file = Path("../completed_exams.json")
+        self._completed_exams = self._load_completed_exams()
+
+    def get_omni_client(self):
+        """Get or create OmniClient instance (lazy initialization)"""
+        if self._omni_client is None:
+            self._omni_client = OmniClient(config.get("models.omni_model", "qwen3-omni-flash"))
+        return self._omni_client
+
+    def has_api_key(self):
+        """Check if API key is configured"""
+        return bool(config.get("api.dashscope_key", "").strip())
+
+    def _load_completed_exams(self) -> List[Dict[str, Any]]:
+        """Load completed exams from persistent storage"""
+        if not self.completed_exams_file.exists():
+            return []
+
+        try:
+            with open(self.completed_exams_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('completed_exams', [])
+        except Exception as e:
+            print(f"Error loading completed exams: {e}")
+            return []
+
+    def _save_completed_exams(self):
+        """Save completed exams to persistent storage"""
+        try:
+            data = {'completed_exams': self._completed_exams}
+            with open(self.completed_exams_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving completed exams: {e}")
+
+    def mark_exam_completed(self, exam_file_path: str, session_id: str):
+        """Mark an exam as completed"""
+        # Check if already marked as completed
+        for completed in self._completed_exams:
+            if completed['exam_file'] == exam_file_path:
+                return  # Already marked
+
+        # Add to completed list
+        self._completed_exams.append({
+            'exam_file': exam_file_path,
+            'completed_at': datetime.now().isoformat(),
+            'session_id': session_id
+        })
+
+        # Save to persistent storage
+        self._save_completed_exams()
+
+    def is_exam_completed(self, exam_file_path: str) -> bool:
+        """Check if an exam has been completed"""
+        return any(completed['exam_file'] == exam_file_path for completed in self._completed_exams)
+
+    def get_completed_exams(self) -> List[str]:
+        """Get list of completed exam file names"""
+        return [completed['exam_file'] for completed in self._completed_exams]
     
     async def start_session(self, request: SessionStartRequest) -> SessionResponse:
         """Start a new exam session"""
@@ -159,6 +218,10 @@ class ExamManager:
 
         if question is None:
             raise ValueError("No current question to answer")
+
+        # Check if API key is configured for processing
+        if not self.has_api_key():
+            raise ValueError("API key not configured. Please configure API key in settings.")
 
         # Check if this is the last question
         is_last_question = session.current_question_index == len(session.exam.questions) - 1
@@ -236,6 +299,10 @@ class ExamManager:
         # Use current time if exam not completed
         end_time = session.end_time if session.end_time else datetime.now()
 
+        # Mark exam as completed if all questions are processed
+        if all_processed:
+            self.mark_exam_completed(session.exam_file_path, session_id)
+
         return FinalResult(
             session_id=session_id,
             exam_title=session.exam.title,
@@ -251,19 +318,26 @@ class ExamManager:
             total_questions=len(session.exam.questions)
         )
     
-    async def list_available_exams(self) -> List[str]:
-        """List all available exam files"""
+    async def list_available_exams(self, include_completed: bool = True) -> List[str]:
+        """List available exam files with optional filtering of completed exams"""
         exam_dir = Path("../exams")
         if not exam_dir.exists():
             return []
-        
+
         exam_files = []
         for file in exam_dir.glob("*.yaml"):
             exam_files.append(file.name)
         for file in exam_dir.glob("*.yml"):
             exam_files.append(file.name)
-        
-        return sorted(exam_files)
+
+        exam_files = sorted(exam_files)
+
+        # Filter out completed exams if requested
+        if not include_completed:
+            completed_exams = self.get_completed_exams()
+            exam_files = [exam for exam in exam_files if exam not in completed_exams]
+
+        return exam_files
     
     async def _load_exam_from_yaml(self, file_path: str) -> Exam:
         """Load exam from YAML file and sort questions by type"""
@@ -323,6 +397,11 @@ class ExamManager:
     
     async def _prepare_audio_files(self, session: ExamSession):
         """Prepare TTS audio files for section instructions and questions with TTS"""
+        # Check if API key is configured
+        if not self.has_api_key():
+            print("Warning: No API key configured - skipping audio file generation")
+            session.audio_files = {}
+            return
 
         audio_files = {}
 
@@ -335,7 +414,7 @@ class ExamManager:
             if instruction.tts:
                 try:
                     tts_request = TTSInput(text=instruction.tts, voice=instruction_voice)
-                    tts_result = await self.omni_client.text_to_speech(tts_request)
+                    tts_result = await self.get_omni_client().text_to_speech(tts_request)
                     # Store with section_type prefix to avoid conflicts
                     audio_files[f"section_{section_type}"] = tts_result.audio_file_path
                     print(f"Generated audio for {section_type} instruction: {tts_result.audio_file_path}")
@@ -348,7 +427,7 @@ class ExamManager:
                 # For quick response, the text is the question audio
                 try:
                     tts_request = TTSInput(text=question.text, voice=response_voice)
-                    tts_result = await self.omni_client.text_to_speech(tts_request)
+                    tts_result = await self.get_omni_client().text_to_speech(tts_request)
                     audio_files[question.id] = tts_result.audio_file_path
                     print(f"Generated audio for quick_response question {question.id}: {tts_result.audio_file_path}")
                 except Exception as e:
@@ -374,7 +453,7 @@ class ExamManager:
                 options=question.options
             )
 
-            grading_result = await self.omni_client.grade_answer(grading_input)
+            grading_result = await self.get_omni_client().grade_answer(grading_input)
             session.add_result(grading_result)
 
         except Exception as e:

@@ -1,5 +1,5 @@
 <template>
-  <div class="app" :class="currentTheme">
+  <div class="app">
     <!-- Header -->
     <header class="header">
       <h1>ECHO - English & Math Exam Platform</h1>
@@ -9,7 +9,7 @@
     <main class="main-content">
       <!-- Home Page -->
       <div v-if="currentPage === 'home'">
-        <HomePage @start-exam="handleStartExam" @file-converter="currentPage = 'file-converter'" @open-settings="showSettings = true" />
+        <HomePage ref="homePage" @start-exam="handleStartExam" @file-converter="currentPage = 'file-converter'" @open-settings="showSettings = true" />
       </div>
 
       <!-- File Converter Page -->
@@ -143,7 +143,8 @@ export default {
     const currentInstruction = ref(null)
     const currentInstructionAudio = ref(null)
     const currentQuestionType = ref(null)
-    const currentTheme = ref('theme-green') // Default theme
+    const homePage = ref(null)
+    // Theme feature removed
 
     // Handle exam start event from components
     const handleStartExam = async (examData) => {
@@ -296,12 +297,16 @@ export default {
       currentPage.value = 'home'
     }
 
-    const handleSettingsUpdated = (newSettings) => {
+    const handleSettingsUpdated = async (newSettings) => {
       console.log('Settings updated:', newSettings)
-      // Update theme
-      currentTheme.value = `theme-${newSettings.ui.theme}`
-      // Apply theme to body
-      document.body.className = `theme-${newSettings.ui.theme}`
+      // Theme feature has been removed
+      // currentTheme.value = `theme-${newSettings.ui.theme}`
+      // document.body.className = `theme-${newSettings.ui.theme}`
+
+      // Refresh API key status to update button states
+      if (homePage.value) {
+        await homePage.value.refreshApiKeyStatus()
+      }
     }
 
     return {
@@ -312,7 +317,7 @@ export default {
       currentInstructionAudio,
       currentQuestionType,
       showSettings,
-      currentTheme,
+      homePage,
       handleStartExam,
       handleAudioTestComplete,
       handleInstructionComplete,

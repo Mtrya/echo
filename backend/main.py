@@ -72,15 +72,41 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
+# API key status endpoint
+@app.get("/api-key-status")
+async def api_key_status():
+    """Check if API key is configured"""
+    try:
+        has_key = exam_manager.has_api_key()
+        return {
+            "has_api_key": has_key,
+            "message": "API key configured" if has_key else "API key not configured"
+        }
+    except Exception as e:
+        return {
+            "has_api_key": False,
+            "message": f"Error checking API key: {str(e)}"
+        }
+
 # List available exams
 @app.get("/exams/list")
-async def list_exams():
-    """List all available exam YAML files"""
+async def list_exams(include_completed: bool = True):
+    """List available exam YAML files with optional filtering"""
     try:
-        exams = await exam_manager.list_available_exams()
+        exams = await exam_manager.list_available_exams(include_completed)
         return {"exams": exams}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing exams: {str(e)}")
+
+# Get completed exams
+@app.get("/exams/completed")
+async def get_completed_exams():
+    """Get list of completed exam files"""
+    try:
+        completed_exams = exam_manager.get_completed_exams()
+        return {"completed_exams": completed_exams}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting completed exams: {str(e)}")
 
 # Start exam session
 @app.post("/session/start", response_model=SessionResponse)
@@ -179,6 +205,20 @@ async def rename_exam(request: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error renaming exam file: {str(e)}")
 
+# Delete exam file endpoint
+@app.post("/delete-exam")
+async def delete_exam(request: dict):
+    """Delete an exam file from the exams directory"""
+    try:
+        exam_filename = request.get("exam_filename")
+
+        if not exam_filename:
+            raise HTTPException(status_code=400, detail="exam_filename is required")
+
+        return await file_converter.delete_exam_file(exam_filename)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting exam file: {str(e)}")
+
 # Configuration endpoints
 @app.get("/settings")
 async def get_settings():
@@ -190,7 +230,6 @@ async def get_settings():
             "options": {
                 "omni_models": config.OMNI_MODELS,
                 "vision_models": config.VISION_MODELS,
-                "themes": config.THEMES,
                 "voice_options": config.VOICE_OPTIONS
             }
         }

@@ -2,37 +2,53 @@
   <div class="home-page">
     <div class="button-column">
       <!-- Settings Button -->
-      <button @click="$emit('open-settings')" class="btn btn-secondary">⚙️ Settings</button>
+      <button @click="$emit('open-settings')" class="btn btn-secondary" :class="{ 'btn-warning': !hasApiKey }">⚙️ Settings</button>
 
       <!-- File Converter Button -->
-      <button @click="openFileConverter" class="btn btn-secondary">
+      <button @click="openFileConverter" class="btn btn-secondary" :disabled="!hasApiKey" :title="!hasApiKey ? 'Configure API key first' : ''">
         📁 Create Exam from Files
       </button>
 
       <!-- Exam Selection -->
-      <button @click="showExamList = true" class="btn btn-primary">
-        Select Exam
+      <button @click="handleExamListClick" class="btn btn-primary" :disabled="!hasApiKey" :title="!hasApiKey ? 'Configure API key first' : ''">
+        📋 Select Exam
       </button>
 
       <!-- Start Exam -->
-      <button @click="startExam" class="btn btn-primary">
-        {{ selectedExam ? `Start Exam: ${selectedExam}` : 'Start Exam' }}
+      <button @click="startExam" class="btn btn-primary" :disabled="!hasApiKey || !selectedExam" :title="!hasApiKey ? 'Configure API key first' : !selectedExam ? 'Select an exam first' : ''">
+        <span v-if="selectedExam">
+          🚀 Start: <span class="exam-name-text">{{ selectedExam }}</span>
+        </span>
+        <span v-else>
+          🚀 Start Exam
+        </span>
       </button>
     </div>
 
     <!-- Exam Selection Modal -->
     <div v-if="showExamList" class="modal-overlay" @click="showExamList = false">
       <div class="modal-content" @click.stop>
-        <h3>Select an Exam</h3>
+        <div class="modal-header">
+          <h3>Select an Exam</h3>
+          <label class="toggle-container">
+            <input type="checkbox" v-model="showCompletedExams" @change="handleToggleChange">
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Show completed</span>
+          </label>
+        </div>
         <div class="exam-list">
-          <div 
-            v-for="exam in availableExams" 
+          <div
+            v-for="exam in availableExams"
             :key="exam"
             class="exam-item"
-            :class="{ selected: selectedExam === exam }"
+            :class="{
+              selected: selectedExam === exam,
+              completed: completedExams.includes(exam)
+            }"
             @click="selectExam(exam)"
           >
-            {{ exam }}
+            <span class="exam-name">{{ exam }}</span>
+            <span v-if="completedExams.includes(exam)" class="completed-badge">✓</span>
           </div>
         </div>
         <button @click="showExamList = false" class="btn btn-secondary">Close</button>
@@ -62,16 +78,60 @@ export default {
     const alertMessage = ref('')
     const selectedExam = ref(null)
     const availableExams = ref([])
+    const completedExams = ref([])
+    const showCompletedExams = ref(false)
+    const hasApiKey = ref(false)
 
-    // Load available exams when component mounts
+    // Load available exams and check API key when component mounts
     onMounted(async () => {
+      await checkApiKeyStatus()
+      await loadCompletedExams()
       await loadExams()
     })
+
+    // Check API key status
+    const checkApiKeyStatus = async () => {
+      try {
+        const response = await fetch('/api-key-status')
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        const data = await response.json()
+        hasApiKey.value = data.has_api_key
+      } catch (error) {
+        console.error('Failed to check API key status:', error)
+        hasApiKey.value = false
+        // Don't show alert for this error - it's expected when backend isn't running
+      }
+    }
+
+    // Refresh API key status (exposed to parent)
+    const refreshApiKeyStatus = async () => {
+      await checkApiKeyStatus()
+    }
+
+    // Handle toggle change event
+    const handleToggleChange = async () => {
+      await loadExams()
+    }
+
+    // Load completed exams
+    const loadCompletedExams = async () => {
+      try {
+        const response = await fetch('/exams/completed')
+        const data = await response.json()
+        completedExams.value = data.completed_exams || []
+      } catch (error) {
+        console.error('Failed to load completed exams:', error)
+        completedExams.value = []
+      }
+    }
 
     // API call to get exam list
     const loadExams = async () => {
       try {
-        const response = await fetch('/exams/list')
+        const includeCompleted = showCompletedExams.value
+        const response = await fetch(`/exams/list?include_completed=${includeCompleted}`)
         const data = await response.json()
         availableExams.value = data.exams || []
       } catch (error) {
@@ -89,7 +149,22 @@ export default {
 
     // Open file converter
     const openFileConverter = () => {
+      if (!hasApiKey.value) {
+        showAlert.value = true
+        alertMessage.value = 'Please configure API key in settings first!'
+        return
+      }
       emit('file-converter')
+    }
+
+    // Handle exam list button click
+    const handleExamListClick = () => {
+      if (!hasApiKey.value) {
+        showAlert.value = true
+        alertMessage.value = 'Please configure API key in settings first!'
+        return
+      }
+      showExamList.value = true
     }
 
     // Start the exam
@@ -97,6 +172,12 @@ export default {
       if (!selectedExam.value) {
         showAlert.value = true
         alertMessage.value = 'Please select an exam first!'
+        return
+      }
+
+      if (!hasApiKey.value) {
+        showAlert.value = true
+        alertMessage.value = 'Please configure API key in settings first!'
         return
       }
 
@@ -136,9 +217,15 @@ export default {
       alertMessage,
       selectedExam,
       availableExams,
+      completedExams,
+      showCompletedExams,
+      hasApiKey,
       selectExam,
       openFileConverter,
-      startExam
+      handleExamListClick,
+      startExam,
+      refreshApiKeyStatus,
+      handleToggleChange
     }
   }
 }
@@ -147,7 +234,7 @@ export default {
 <style scoped>
 .home-page {
   width: 100%;
-  max-width: 300px;
+  max-width: 450px;
 }
 
 .button-column {
@@ -168,13 +255,25 @@ export default {
 
 /* Button Styles */
 .btn {
-  padding: 1rem 2rem;
+  padding: 1rem 1.5rem;
   border: none;
   border-radius: 8px;
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 600;
+  text-align: left;
+  white-space: normal;
+  word-wrap: break-word;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+}
+
+.exam-name-text {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin-left: 4px;
 }
 
 .btn-primary {
@@ -182,9 +281,16 @@ export default {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #15803d;
   transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  background: #9ca3af;
+  color: #6b7280;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
@@ -193,9 +299,36 @@ export default {
   border: 2px solid #16a34a;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: white;
   transform: translateY(-2px);
+}
+
+.btn-secondary:disabled {
+  background: #9ca3af;
+  color: #6b7280;
+  cursor: not-allowed;
+  border-color: #9ca3af;
+  transform: none;
+}
+
+.btn-warning {
+  background: #f59e0b !important;
+  color: white !important;
+  border-color: #d97706 !important;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
 }
 
 /* Modal Styles */
@@ -242,6 +375,9 @@ export default {
   cursor: pointer;
   border-bottom: 1px solid #e5e7eb;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .exam-item:hover {
@@ -256,6 +392,76 @@ export default {
 
 .exam-item:last-child {
   border-bottom: none;
+}
+
+.exam-item.completed {
+  opacity: 0.6;
+  background: #f9fafb;
+}
+
+.exam-name {
+  flex: 1;
+}
+
+.completed-badge {
+  color: #16a34a;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* Toggle Switch Styles */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-container input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background-color: #ccc;
+  border-radius: 34px;
+  transition: background-color 0.3s;
+  margin-right: 8px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+
+.toggle-container input[type="checkbox"]:checked + .toggle-slider {
+  background-color: #16a34a;
+}
+
+.toggle-container input[type="checkbox"]:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.toggle-label {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
 }
 
 /* Alert Styles */
