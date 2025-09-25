@@ -152,7 +152,13 @@ class FileConverter:
     """File converter that handles the complete conversion pipeline"""
 
     def __init__(self):
-        self.vl_client = OmniClient(model=config.get("models.vision_model", "qwen3-vl-plus"))
+        self._vl_client = None
+
+    def get_vl_client(self):
+        """Get or create OmniClient instance (lazy initialization)"""
+        if self._vl_client is None:
+            self._vl_client = OmniClient(config.get("models.vision_model", "qwen3-vl-plus"))
+        return self._vl_client
 
     def _generate_yaml_content(self, original_filenames: List[str], questions: List[Question]) -> str:
         """Generate YAML content from extracted questions"""
@@ -190,7 +196,6 @@ class FileConverter:
                 "id": question.id,
                 "type": question.type,
                 "text": question.text,
-                "time_limit": question.time_limit
             }
 
             if question.options:
@@ -218,7 +223,7 @@ class FileConverter:
         conversion_input = FileParser.parse_files(request)
 
         # 2. Convert to questions with VLM
-        conversion_result = await self.vl_client.convert_files_to_questions(conversion_input)
+        conversion_result = await self.get_vl_client().convert_files_to_questions(conversion_input)
         if not conversion_result.success: # if not success, return directly
             return FileConversionResponse(
                 success=False,
@@ -290,6 +295,39 @@ class FileConverter:
             }
         except Exception as e:
             raise Exception(f"Failed to rename file: {str(e)}")
+
+    async def delete_exam_file(self, exam_filename: str) -> dict:
+        """Delete an exam file from the exams directory"""
+        from pathlib import Path
+
+        # Define exams directory path
+        exams_dir = Path("../exams")
+
+        # Create path
+        exam_path = exams_dir / exam_filename
+
+        # Check if file exists
+        if not exam_path.exists():
+            raise FileNotFoundError(f"File {exam_filename} not found in exams directory")
+
+        # Security check: ensure file is in exams directory and has .yaml extension
+        try:
+            exam_path.resolve().relative_to(exams_dir.resolve())
+        except ValueError:
+            raise ValueError("Invalid file path - must be within exams directory")
+
+        if not exam_filename.endswith('.yaml') and not exam_filename.endswith('.yml'):
+            raise ValueError("Only .yaml and .yml files can be deleted")
+
+        # Delete the file
+        try:
+            exam_path.unlink()
+            return {
+                "success": True,
+                "message": f"Successfully deleted {exam_filename}"
+            }
+        except Exception as e:
+            raise Exception(f"Failed to delete file: {str(e)}")
 
 if __name__ == "__main__":
     import asyncio

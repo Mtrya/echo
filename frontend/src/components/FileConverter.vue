@@ -1,7 +1,13 @@
 <template>
   <div class="file-converter">
-    <h1>File Converter</h1>
-    <p>Upload files to convert them into exam questions</p>
+    <!-- Header with Go Home button -->
+    <div class="header-section">
+      <div>
+        <h1>File Converter</h1>
+        <p>Upload files to convert them into exam questions</p>
+      </div>
+      <button @click="goHome" class="go-home-btn">🏠 Go Home</button>
+    </div>
 
     <!-- File Upload Area -->
     <div
@@ -97,7 +103,7 @@
 
         <div class="result-actions">
           <button @click="resetConverter" class="reset-btn">Convert More Files</button>
-          <button @click="goHome" class="home-btn">Go Home</button>
+          <button @click="discardExam" class="discard-btn">🗑️ Discard Exam</button>
         </div>
       </div>
 
@@ -301,6 +307,52 @@ export default {
       clearFiles()
     }
 
+    const discardExam = async () => {
+      if (!generatedExamPath.value) {
+        alert('No exam file to discard')
+        return
+      }
+
+      // Extract just the filename from the path
+      const examFilename = generatedExamPath.value.split('/').pop()
+
+      // Confirm before deletion
+      const confirmed = confirm(
+        `Are you sure you want to discard this exam?\n\n` +
+        `File: ${examFilename}\n\n` +
+        `This action cannot be undone.`
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      try {
+        const response = await fetch('/delete-exam', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            exam_filename: examFilename
+          })
+        })
+
+        const result = await response.json()
+
+        if (result.success) {
+          alert(`✅ Exam discarded successfully!\n\n${result.message}`)
+          // Reset the converter state
+          resetConverter()
+        } else {
+          alert(`❌ Failed to discard exam: ${result.message}`)
+        }
+      } catch (error) {
+        console.error('Error discarding exam:', error)
+        alert('❌ Network error while trying to discard exam. Please try again.')
+      }
+    }
+
     return {
       fileInput,
       isDragOver,
@@ -318,7 +370,8 @@ export default {
       convertFiles,
       formatQuestionType,
       goHome,
-      resetConverter
+      resetConverter,
+      discardExam
     }
   }
 }
@@ -332,16 +385,45 @@ export default {
   font-family: Arial, sans-serif;
 }
 
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 30px;
+}
+
+.header-section > div {
+  flex: 1;
+}
+
 h1 {
   color: #2c3e50;
-  text-align: center;
+  text-align: left;
   margin-bottom: 10px;
 }
 
 p {
-  text-align: center;
+  text-align: left;
   color: #666;
-  margin-bottom: 30px;
+  margin-bottom: 0;
+}
+
+.go-home-btn {
+  background: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.go-home-btn:hover {
+  background: #15803d;
+  transform: translateY(-2px);
 }
 
 .upload-area {
@@ -578,7 +660,7 @@ p {
   margin-top: 20px;
 }
 
-.reset-btn, .home-btn, .retry-btn {
+.reset-btn, .home-btn, .retry-btn, .discard-btn {
   padding: 10px 20px;
   border: none;
   border-radius: 5px;
@@ -611,6 +693,15 @@ p {
 }
 
 .retry-btn:hover {
+  background: #c82333;
+}
+
+.discard-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.discard-btn:hover {
   background: #c82333;
 }
 
