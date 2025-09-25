@@ -17,6 +17,7 @@ try:
     )
     from .exam_logic import ExamManager
     from .file_conversion import FileConverter
+    from .config import config
 except ImportError:
     from models import (
         SessionStartRequest, SessionResponse, QuestionResponse,
@@ -25,6 +26,7 @@ except ImportError:
     )
     from exam_logic import ExamManager
     from file_conversion import FileConverter
+    from config import config
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -176,6 +178,59 @@ async def rename_exam(request: dict):
         return await file_converter.rename_exam_file(old_name, new_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error renaming exam file: {str(e)}")
+
+# Configuration endpoints
+@app.get("/settings")
+async def get_settings():
+    """Get current configuration"""
+    try:
+        return {
+            "success": True,
+            "config": config.get_all(),
+            "options": {
+                "omni_models": config.OMNI_MODELS,
+                "vision_models": config.VISION_MODELS,
+                "themes": config.THEMES,
+                "voice_options": config.VOICE_OPTIONS
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting settings: {str(e)}")
+
+@app.post("/settings")
+async def update_settings(request: dict):
+    """Update configuration"""
+    try:
+        new_config = request.get("config", {})
+        result = config.update(new_config)
+
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["errors"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating settings: {str(e)}")
+
+@app.post("/test-api")
+async def test_api_connection(request: dict):
+    """Test API connection"""
+    try:
+        api_key = request.get("api_key", "")
+        result = config.test_api_connection(api_key)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error testing API connection: {str(e)}")
+
+@app.get("/voices/{omni_model}")
+async def get_available_voices(omni_model: str):
+    """Get available voices for a specific omni model"""
+    try:
+        voices = config.get_available_voices(omni_model)
+        return {"success": True, "voices": voices}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting voices: {str(e)}")
 
 # Error handler
 @app.exception_handler(Exception)

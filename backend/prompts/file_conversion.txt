@@ -24,16 +24,12 @@ Respond in JSON format:
             "type": "multiple_choice|read_aloud|quick_response|translation",
             "text": "<question text>",
             "options": ["A: option1", "B: option2", "C: option3", "D: option4"], // only for multiple_choice
-            "reference_answer": "<correct answer>", // only for multiple_choice
-            "time_limit": 15|30
+            "reference_answer": "<correct answer>" // only for multiple_choice
         }}
     ]
 }}
 
 ## Guidelines:
 - For multiple_choice: Always provide exactly 4 options (A, B, C, D)
-- For read_aloud: Set time_limit to 15 seconds
-- For quick_response: Set time_limit to 15 seconds
-- For translation: Set time_limit to 30 seconds
 - If no valid questions found, set success: false and explain why
 - If geometric/visual content detected, mention it in the message

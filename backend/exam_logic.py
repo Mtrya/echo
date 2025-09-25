@@ -12,6 +12,7 @@ try:
         AnswerResponse, FinalResult
     )
     from .omni_client import OmniClient
+    from .config import config
 except ImportError:
     from models import (
         Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput, AudioGenerationStatus,
@@ -19,6 +20,7 @@ except ImportError:
         AnswerResponse, FinalResult
     )
     from omni_client import OmniClient
+    from config import config
 
 
 class ExamSession:
@@ -97,7 +99,7 @@ class ExamSession:
 class ExamManager:
     def __init__(self):
         self.sessions: Dict[str, ExamSession] = {}
-        self.omni_client = OmniClient()
+        self.omni_client = OmniClient(config.get("models.omni_model", "qwen3-omni-flash"))
     
     async def start_session(self, request: SessionStartRequest) -> SessionResponse:
         """Start a new exam session"""
@@ -137,11 +139,15 @@ class ExamManager:
             instruction = session.exam.section_instructions.get(question.type)
             instruct_audio_file_path = session.audio_files.get(f"section_{question.type}")
 
+        # Get time limit from config based on question type
+        time_limit = config.get(f"time_limits.{question.type}", 30)
+
         return QuestionResponse(
             question=question,
             audio_file_path=audio_file_path,
             question_index=session.current_question_index,
             is_last=session.current_question_index == len(session.exam.questions) - 1,
+            time_limit=time_limit,
             instruction=instruction,
             instruct_audio_file_path=instruct_audio_file_path,
         )
@@ -290,8 +296,7 @@ class ExamManager:
                 type=q_data['type'],
                 text=q_data['text'],
                 options=q_data.get('options'),
-                reference_answer=q_data.get('reference_answer'),
-                time_limit=q_data.get('time_limit', 30)
+                reference_answer=q_data.get('reference_answer')
             )
             questions.append(question)
             original_indices[question.id] = i  # Store original index
@@ -321,11 +326,15 @@ class ExamManager:
 
         audio_files = {}
 
+        # Get voices from config
+        instruction_voice = config.get("models.instruction_voice", "Cherry")
+        response_voice = config.get("models.response_voice", "Cherry")
+
         # Generate audio for section instructions
         for section_type, instruction in session.exam.section_instructions.items():
             if instruction.tts:
                 try:
-                    tts_request = TTSInput(text=instruction.tts, voice="Elias")
+                    tts_request = TTSInput(text=instruction.tts, voice=instruction_voice)
                     tts_result = await self.omni_client.text_to_speech(tts_request)
                     # Store with section_type prefix to avoid conflicts
                     audio_files[f"section_{section_type}"] = tts_result.audio_file_path
@@ -338,7 +347,7 @@ class ExamManager:
             if question.type == 'quick_response':
                 # For quick response, the text is the question audio
                 try:
-                    tts_request = TTSInput(text=question.text, voice="Cherry")
+                    tts_request = TTSInput(text=question.text, voice=response_voice)
                     tts_result = await self.omni_client.text_to_speech(tts_request)
                     audio_files[question.id] = tts_result.audio_file_path
                     print(f"Generated audio for quick_response question {question.id}: {tts_result.audio_file_path}")

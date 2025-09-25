@@ -24,27 +24,22 @@ exam:
     - id: ra1
       type: read_aloud
       text: The quick brown fox jumps over the lazy dog
-      time_limit: 15
 
     - id: ra2
       type: read_aloud
       text: I enjoy playing basketball with my friends after school
-      time_limit: 15
 
     - id: ra3
       type: read_aloud
       text: Mathematics is my favorite subject in school
-      time_limit: 15
 
     - id: ra4
       type: read_aloud
       text: The weather today is sunny and warm
-      time_limit: 15
 
     - id: ra5
       type: read_aloud
       text: My family and I are going to the park this weekend
-      time_limit: 15
 
     - id: mc1
       type: multiple_choice
@@ -55,7 +50,6 @@ exam:
         - 'C: 560'
         - 'D: 500'
       reference_answer: A
-      time_limit: 30
 
     - id: mc2
       type: multiple_choice
@@ -66,7 +60,6 @@ exam:
         - 'C: 26 cm²'
         - 'D: 35 cm²'
       reference_answer: B
-      time_limit: 30
 
     - id: mc3
       type: multiple_choice
@@ -77,7 +70,6 @@ exam:
         - 'C: 4'
         - 'D: 7'
       reference_answer: A
-      time_limit: 30
 
     - id: mc4
       type: multiple_choice
@@ -88,8 +80,7 @@ exam:
         - 'C: She is going to the store'
         - 'D: She will have gone to the store'
       reference_answer: B
-      time_limit: 30
-
+    
     - id: mc5
       type: multiple_choice
       text: What is 25% of 200?
@@ -99,56 +90,47 @@ exam:
         - 'C: 75'
         - 'D: 100'
       reference_answer: B
-      time_limit: 30
-
+      
     # Quick Response Questions (5 questions)
     - id: qr1
       type: quick_response
       text: What do you like to do in your free time?
-      time_limit: 15
-
+      
     - id: qr2
       type: quick_response
       text: Describe your best friend
-      time_limit: 15
-
+      
     - id: qr3
       type: quick_response
       text: What did you eat for breakfast this morning?
-      time_limit: 15
+      
 
     - id: qr4
       type: quick_response
       text: Tell me about your favorite book or movie
-      time_limit: 15
-
+      
     - id: qr5
       type: quick_response
       text: What do you want to be when you grow up?
-      time_limit: 15
-
+      
     # Translation Questions (5 questions)
     - id: tr1
       type: translation
       text: 虽然数学很难，但是我认为它很有趣。
-      time_limit: 30
-
+      
     - id: tr2
       type: translation
       text: 如果明天天气好的话，我们去公园玩。
-      time_limit: 30
-
+      
     - id: tr3
       type: translation
       text: 我最喜欢的科目是物理，因为它让我了解世界是如何运作的。
-      time_limit: 30
-
+      
     - id: tr4
       type: translation
       text: 除了学习之外，我还喜欢参加各种课外活动。
-      time_limit: 30
-
+      
     - id: tr5
       type: translation
       text: 老师经常鼓励我们要勇于面对挑战，不要害怕失败。
-      time_limit: 30
+      

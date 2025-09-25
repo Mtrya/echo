@@ -24,28 +24,23 @@ exam:
     - id: ra1
       type: read_aloud
       text: Science experiments help us understand the natural world around us.
-      time_limit: 15
 
     - id: ra2
       type: read_aloud
       text: The library is a quiet place where students can study and read books.
-      time_limit: 15
 
     - id: ra3
       type: read_aloud
       text: My mother prepares delicious meals for our family every evening.
-      time_limit: 15
 
     - id: ra4
       type: read_aloud
       text: During summer vacation, I enjoy swimming in the pool with my cousins.
-      time_limit: 15
 
     - id: ra5
       type: read_aloud
       text: Technology has changed how we communicate and learn new things.
-      time_limit: 15
-
+      
     - id: mc1
       type: multiple_choice
       text: What is 72 ÷ 8?
@@ -55,8 +50,7 @@ exam:
         - 'C: 9'
         - 'D: 10'
       reference_answer: C
-      time_limit: 30
-
+      
     - id: mc2
       type: multiple_choice
       text: A triangle has angles of 35°, 65°, and what third angle?
@@ -66,8 +60,7 @@ exam:
         - 'C: 90°'
         - 'D: 100°'
       reference_answer: B
-      time_limit: 30
-
+      
     - id: mc3
       type: multiple_choice
       text: 'Which word is an adverb in this sentence: "She quickly ran to the store"?'
@@ -77,8 +70,7 @@ exam:
         - 'C: quickly'
         - 'D: store'
       reference_answer: C
-      time_limit: 30
-
+      
     - id: mc4
       type: multiple_choice
       text: If a book costs $15 and you have a 20% discount coupon, how much do you pay?
@@ -88,8 +80,7 @@ exam:
         - 'C: $13'
         - 'D: $15'
       reference_answer: B
-      time_limit: 30
-
+      
     - id: mc5
       type: multiple_choice
       text: 'What is the past tense of "begin"?'
@@ -99,56 +90,46 @@ exam:
         - 'C: beginned'
         - 'D: beginning'
       reference_answer: A
-      time_limit: 30
-
+      
     # Quick Response Questions (5 questions)
     - id: qr1
       type: quick_response
       text: What is your favorite season and why do you like it?
-      time_limit: 15
-
+      
     - id: qr2
       type: quick_response
       text: Describe your classroom and what makes it special.
-      time_limit: 15
-
+      
     - id: qr3
       type: quick_response
       text: What would you do if you found a wallet on the street?
-      time_limit: 15
-
+      
     - id: qr4
       type: quick_response
       text: Tell me about a time when you helped someone.
-      time_limit: 15
-
+      
     - id: qr5
       type: quick_response
       text: What is something you want to learn how to do?
-      time_limit: 15
-
+      
     # Translation Questions (5 questions)
     - id: tr1
       type: translation
       text: 学习英语不仅有趣，而且对未来的发展很有帮助。
-      time_limit: 30
-
+      
     - id: tr2
       type: translation
       text: 昨天晚上我和家人一起看了电影，大家都觉得很好看。
-      time_limit: 30
-
+      
     - id: tr3
       type: translation
       text: 虽然有时候会遇到困难，但是只要努力就能成功。
-      time_limit: 30
-
+      
     - id: tr4
       type: translation
       text: 保护环境是每个人的责任，我们应该从身边的小事做起。
-      time_limit: 30
-
+      
     - id: tr5
       type: translation
       text: 在这个信息时代，学会如何筛选和处理信息变得非常重要。
-      time_limit: 30
+      

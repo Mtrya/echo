@@ -2,7 +2,7 @@
   <div class="home-page">
     <div class="button-column">
       <!-- Settings Button -->
-      <button class="btn btn-secondary">Settings</button>
+      <button @click="$emit('open-settings')" class="btn btn-secondary">⚙️ Settings</button>
 
       <!-- File Converter Button -->
       <button @click="openFileConverter" class="btn btn-secondary">
@@ -54,7 +54,7 @@ import { ref, onMounted } from 'vue'
 
 export default {
   name: 'HomePage',
-  emits: ['start-exam', 'file-converter'], // Declare that this component can emit events
+  emits: ['start-exam', 'file-converter', 'open-settings'], // Declare that this component can emit events
   setup(_, { emit }) {
     // State management
     const showExamList = ref(false)

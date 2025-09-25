@@ -105,10 +105,9 @@ Get the current question for the session. Includes audio file path if available.
     "type": "multiple_choice",
     "text": "What is 2+2?",
     "options": ["A: 4", "B: 5", "C: 6", "D: 7"],
-    "reference_answer": "A",
-    "time_limit": 30,
-    "tts": "What is 2 plus 2?"
+    "reference_answer": "A"
   },
+  "time_limit": 30,
   "audio_file_path": "tts/bea39faa84a9823d21818aa1e104ecdd.mp3",
   "question_index": 0,
   "is_last": false,
@@ -249,8 +248,8 @@ Convert file to exam format using qwen3-vl-plus.
 
 ```json
 {
-  "file_path": "path/to/document",
-  "output_file": "output_exam.yaml"
+  "filenames": ["document.pdf", "image.png"],
+  "file_contents": ["base64-encoded-content-1", "base64-encoded-content-2"]
 }
 ```
 
@@ -258,8 +257,19 @@ Convert file to exam format using qwen3-vl-plus.
 
 ```json
 {
-  "exam_file_path": "converted_exam.yaml",
-  "message": "File converted successfully"
+  "success": true,
+  "message": "Successfully extracted 15 questions from provided files",
+  "extracted_questions": [
+    {
+      "id": "q1",
+      "type": "multiple_choice",
+      "text": "What is 2+2?",
+      "options": ["A: 4", "B: 5", "C: 6", "D: 7"],
+      "reference_answer": "A"
+    }
+  ],
+  "yaml_output": "exam:\n  title: 'Generated Exam'\n  questions: [...]",
+  "output_filename": "generated_exam_20241225_143022.yaml"
 }
 ```
 
@@ -287,11 +297,114 @@ Rename an exam file in the exams directory.
 }
 ```
 
+### 11. Settings Management
+
+**GET** `/settings`
+
+Get current configuration settings.
+
+**Response:**
+
+```json
+{
+  "api": {
+    "dashscope_key": "your-api-key-here"
+  },
+  "models": {
+    "omni_model": "qwen3-omni-flash",
+    "vision_model": "qwen3-vl-plus"
+  },
+  "time_limits": {
+    "multiple_choice": 30,
+    "read_aloud": 15,
+    "quick_response": 15,
+    "translation": 30
+  },
+  "ui": {
+    "theme": "green"
+  }
+}
+```
+
+**POST** `/settings`
+
+Update configuration settings.
+
+**Request:**
+
+```json
+{
+  "api": {
+    "dashscope_key": "new-api-key"
+  },
+  "models": {
+    "omni_model": "qwen3-omni-flash",
+    "vision_model": "qwen3-vl-plus"
+  },
+  "time_limits": {
+    "multiple_choice": 30,
+    "read_aloud": 15,
+    "quick_response": 15,
+    "translation": 30
+  },
+  "ui": {
+    "theme": "blue"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Settings updated successfully"
+}
+```
+
+**POST** `/test-api`
+
+Test API connection with provided credentials.
+
+**Request:**
+
+```json
+{
+  "api_key": "your-api-key-to-test"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "API connection successful",
+  "model_info": {
+    "model": "qwen3-omni-flash",
+    "capabilities": ["text", "audio", "vision"]
+  }
+}
+```
+
+**GET** `/voices/{omni_model}`
+
+Get available voices for a specific omni model.
+
+**Response:**
+
+```json
+{
+  "model": "qwen3-omni-flash",
+  "available_voices": ["Cherry", "Ethan", "Aria", "Oliver", "Sophia", "Liam"]
+}
+```
+
 ## Question Types
 
 ### 1. Multiple Choice (`multiple_choice`)
 
-- **Time Limit**: 30 seconds
+- **Default Time Limit**: 30 seconds (configurable)
 - **Input**: Mouse click (A, B, C, D)
 - **Answer Format**: Single letter ("A", "B", "C", "D")
 - **Features**: Automatic scoring, LLM provides explanations
@@ -299,7 +412,7 @@ Rename an exam file in the exams directory.
 
 ### 2. Read Aloud (`read_aloud`)
 
-- **Time Limit**: 15 seconds
+- **Default Time Limit**: 15 seconds (configurable)
 - **Input**: Voice recording
 - **Answer Format**: Audio data (transcribed automatically)
 - **Features**: Text matching accuracy, pronunciation feedback
@@ -307,7 +420,7 @@ Rename an exam file in the exams directory.
 
 ### 3. Quick Response (`quick_response`)
 
-- **Time Limit**: 15 seconds
+- **Default Time Limit**: 15 seconds (configurable)
 - **Input**: Voice recording
 - **Answer Format**: Audio data (transcribed automatically)
 - **Features**: LLM grades relevance and grammar
@@ -315,7 +428,7 @@ Rename an exam file in the exams directory.
 
 ### 4. Translation (`translation`)
 
-- **Time Limit**: 30 seconds
+- **Default Time Limit**: 30 seconds (configurable)
 - **Input**: Voice recording
 - **Answer Format**: Audio data (transcribed automatically)
 - **Features**: LLM grades translation accuracy
@@ -396,7 +509,8 @@ Rename an exam file in the exams directory.
 
 ### 3. Timer Implementation
 
-- Use `time_limit` from question data
+- Use `time_limit` from question response data (not from question object)
+- Time limits are configurable via settings API
 - Start timer when question is displayed
 - Auto-submit when timer expires
 
@@ -465,11 +579,34 @@ function playStudentAudio(audioPath) {
 }
 ```
 
-## Environment Variables
+## Configuration
 
-The following environment variables are required:
+The platform uses a YAML configuration file (`config.yaml`) for settings management:
 
-- `SILICONFLOW_API_KEY`: API key for SiliconFlow services
+- **API Keys**: Configure via settings UI or config file
+- **Model Selection**: Choose from available omni and vision models
+- **Time Limits**: Configure per question type
+- **UI Themes**: Green, Blue, Purple themes available
+- **Voice Options**: Select from model-compatible voices
+
+### Available Models
+
+**Omni Models (Audio + Text):**
+- `qwen3-omni-flash` (default)
+- `qwen-omni-turbo`
+- `qwen2.5-omni-7b`
+
+**Vision Models (Image Processing):**
+- `qwen3-vl-plus` (default)
+- `qwen3-vl-235b-a22b-thinking`
+- `qwen2.5-vl-72b-instruct`
+- And 10 other vision models
+
+### Supported File Formats
+
+- **Text**: `.txt`, `.md`, `.docx`
+- **Images**: `.jpg`, `.jpeg`, `.png`
+- **Documents**: `.pdf` (converted to images)
 
 ## Testing Endpoints
 

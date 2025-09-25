@@ -14,9 +14,11 @@ from pathlib import Path
 try:
     from .models import ConversionInput, ConversionResult, FileConversionRequest, FileConversionResponse, Question
     from .omni_client import OmniClient
+    from .config import config
 except ImportError:
     from models import ConversionInput, ConversionResult, FileConversionRequest, FileConversionResponse, Question
     from omni_client import OmniClient
+    from config import config
 
 class FileParser:
     """
@@ -150,7 +152,7 @@ class FileConverter:
     """File converter that handles the complete conversion pipeline"""
 
     def __init__(self):
-        self.vl_client = OmniClient(model="qwen3-vl-plus")
+        self.vl_client = OmniClient(model=config.get("models.vision_model", "qwen3-vl-plus"))
 
     def _generate_yaml_content(self, original_filenames: List[str], questions: List[Question]) -> str:
         """Generate YAML content from extracted questions"""

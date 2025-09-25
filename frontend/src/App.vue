@@ -1,5 +1,5 @@
 <template>
-  <div class="app">
+  <div class="app" :class="currentTheme">
     <!-- Header -->
     <header class="header">
       <h1>ECHO - English & Math Exam Platform</h1>
@@ -9,7 +9,7 @@
     <main class="main-content">
       <!-- Home Page -->
       <div v-if="currentPage === 'home'">
-        <HomePage @start-exam="handleStartExam" @file-converter="currentPage = 'file-converter'" />
+        <HomePage @start-exam="handleStartExam" @file-converter="currentPage = 'file-converter'" @open-settings="showSettings = true" />
       </div>
 
       <!-- File Converter Page -->
@@ -94,6 +94,16 @@
         <button @click="currentPage = 'home'" class="btn btn-secondary">Back to Home</button>
       </div>
     </main>
+
+    <!-- Settings Modal -->
+    <div v-if="showSettings" class="settings-modal">
+      <div class="settings-modal-content">
+        <Settings
+          @close-settings="showSettings = false"
+          @settings-updated="handleSettingsUpdated"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -108,6 +118,7 @@ import QuickResponse from './components/QuickResponse.vue'
 import Translation from './components/Translation.vue'
 import Results from './components/Results.vue'
 import FileConverter from './components/FileConverter.vue'
+import Settings from './components/Settings.vue'
 
 export default {
   name: 'App',
@@ -120,16 +131,19 @@ export default {
     QuickResponse,
     Translation,
     Results,
-    FileConverter
+    FileConverter,
+    Settings
   },
   setup() {
     // Navigation state
     const currentPage = ref('home')
     const sessionId = ref(null)
     const currentQuestion = ref(null)
+    const showSettings = ref(false)
     const currentInstruction = ref(null)
     const currentInstructionAudio = ref(null)
     const currentQuestionType = ref(null)
+    const currentTheme = ref('theme-green') // Default theme
 
     // Handle exam start event from components
     const handleStartExam = async (examData) => {
@@ -200,6 +214,7 @@ export default {
           currentQuestion.value.question_index = data.question_index
           currentQuestion.value.is_last = data.is_last
           currentQuestion.value.audio_file_path = data.audio_file_path
+          currentQuestion.value.time_limit = data.time_limit
 
           console.log('Setting up question:', data.question.type, 'has instruction:', !!data.instruction)
 
@@ -281,6 +296,14 @@ export default {
       currentPage.value = 'home'
     }
 
+    const handleSettingsUpdated = (newSettings) => {
+      console.log('Settings updated:', newSettings)
+      // Update theme
+      currentTheme.value = `theme-${newSettings.ui.theme}`
+      // Apply theme to body
+      document.body.className = `theme-${newSettings.ui.theme}`
+    }
+
     return {
       currentPage,
       sessionId,
@@ -288,13 +311,16 @@ export default {
       currentInstruction,
       currentInstructionAudio,
       currentQuestionType,
+      showSettings,
+      currentTheme,
       handleStartExam,
       handleAudioTestComplete,
       handleInstructionComplete,
       handleQuestionComplete,
       getNextQuestion,
       handleNewExam,
-      handleGoHome
+      handleGoHome,
+      handleSettingsUpdated
     }
   }
 }
@@ -370,5 +396,29 @@ export default {
 .placeholder-page h2 {
   color: #16a34a;
   margin-bottom: 1rem;
+}
+
+/* Settings Modal */
+.settings-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.settings-modal-content {
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 </style>

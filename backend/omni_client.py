@@ -22,19 +22,21 @@ import soundfile as sf
 from json_repair import repair_json
 try:
     from .models import TTSResult, TTSInput, GradingInput, GradingResult, ConversionInput, ConversionResult, Question
+    from .config import config
 except ImportError:
     from models import TTSResult, TTSInput, GradingInput, GradingResult, ConversionInput, ConversionResult, Question
+    from config import config
 
 class OmniClient:
     """Unified client for qwen3-omni-flash and qwen3-vl-plus models handling TTS, ASR, LLM, and vision functions"""
 
     def __init__(self, model="qwen3-omni-flash"):
-        self.api_key = os.getenv("DASHSCOPE_API_KEY")
+        self.api_key = config.get("api.dashscope_key")
         self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
         self.model = model
 
         if not self.api_key:
-            raise ValueError("DASHSCOPE_API_KEY not found in environment variables")
+            raise ValueError("DASHSCOPE_API_KEY not found in configuration. Please set it in Settings.")
 
         self.cache_dir = Path("../audio_cache")
         self.tts_cache_dir = self.cache_dir / "tts"
@@ -456,8 +458,7 @@ class OmniClient:
                 type=q_data["type"],
                 text=q_data["text"],
                 options=q_data.get("options"),
-                reference_answer=q_data.get("reference_answer"),
-                time_limit=q_data["time_limit"]
+                reference_answer=q_data.get("reference_answer")
             )
             questions.append(question)
 

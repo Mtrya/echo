@@ -79,7 +79,6 @@
               <div class="question-header">
                 <span class="question-number">{{ index + 1 }}.</span>
                 <span class="question-type">{{ formatQuestionType(question.type) }}</span>
-                <span class="question-time">{{ question.time_limit }}s</span>
               </div>
               <div class="question-text">{{ question.text }}</div>
 

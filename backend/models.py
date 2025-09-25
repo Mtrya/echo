@@ -9,7 +9,6 @@ class Question(BaseModel):
     text: str
     options: Optional[List[str]] = None # only for multiple-choice questions
     reference_answer: Optional[str] = None # only for multiple-choice questions
-    time_limit: int = 30
 
 class SectionInstruction(BaseModel):
     text: str
@@ -72,6 +71,7 @@ class QuestionResponse(BaseModel):
     audio_file_path: Optional[str] = None
     question_index: int
     is_last: bool
+    time_limit: int
     instruction: Optional[SectionInstruction] = None
     instruct_audio_file_path: Optional[str] = None
 
