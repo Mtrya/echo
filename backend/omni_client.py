@@ -16,36 +16,53 @@ import json
 import time
 import hashlib
 import numpy as np
-import tempfile
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import soundfile as sf
 from json_repair import repair_json
 try:
-    from pydub import AudioSegment
+    from .models import TTSResult, TTSInput, GradingInput, GradingResult, ConversionInput, ConversionResult, Question
 except ImportError:
-    AudioSegment = None
-try:
-    from .models import TTSOutput, TTSInput, GradingInput, GradingResult
-except ImportError:
-    from models import TTSOutput, TTSInput, GradingInput, GradingResult
+    from models import TTSResult, TTSInput, GradingInput, GradingResult, ConversionInput, ConversionResult, Question
 
 class OmniClient:
-    """Unified client for qwen3-omni-flash model handling TTS, ASR, and LLM functions"""
+    """Unified client for qwen3-omni-flash and qwen3-vl-plus models handling TTS, ASR, LLM, and vision functions"""
 
-    def __init__(self):
+    def __init__(self, model="qwen3-omni-flash"):
         self.api_key = os.getenv("DASHSCOPE_API_KEY")
         self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        self.model = "qwen3-omni-flash"
+        self.model = model
 
         if not self.api_key:
             raise ValueError("DASHSCOPE_API_KEY not found in environment variables")
-        
+
         self.cache_dir = Path("../audio_cache")
         self.tts_cache_dir = self.cache_dir / "tts"
         self.student_audio_dir = self.cache_dir / "student_answers"
         self.tts_cache_dir.mkdir(parents=True, exist_ok=True)
         self.student_audio_dir.mkdir(parents=True, exist_ok=True)
+
+        # Load prompt templates
+        self.prompts_dir = Path(__file__).parent / "prompts"
+        self.prompts = self._load_prompts()
+
+    def _load_prompts(self) -> Dict[str, str]:
+        """Load all prompt templates from files."""
+        prompts = {}
+        if self.prompts_dir.exists():
+            for prompt_file in self.prompts_dir.glob("*.txt"):
+                prompt_name = prompt_file.stem
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    prompts[prompt_name] = f.read().strip()
+        return prompts
+
+    def _get_prompt(self, prompt_name: str, **kwargs) -> str:
+        """Get a prompt template with variables substituted."""
+        if prompt_name not in self.prompts:
+            raise ValueError(f"Prompt '{prompt_name}' not found")
+
+        prompt = self.prompts[prompt_name]
+        return prompt.format(**kwargs)
 
     def _get_tts_cache_path(self, text: str, voice: str) -> Path:
         """Generate cache file path for TTS audio"""
@@ -57,18 +74,29 @@ class OmniClient:
         self,
         text_prompt: str,
         base64_audio: Optional[str] = None,
+        base64_images: Optional[List[str]] = None,
         voice: str = "Cherry",
-        modalities: list = ["text", "audio"],
+        output_modalities: Optional[list] = ["text", "audio"],
         enable_thinking: bool = False
     ) -> Dict[str, Any]:
         """
-        Process unified request with qwen3-omni-flash
+        Process unified request with qwen3-omni-flash or qwen3-vl-plus
         Returns dict with text_response and optional base64encoded audio data
         """
         print(f"Processing omni request: {text_prompt[:50]}...")
 
         # Prepare the content array
         content = []
+
+        # Add images if provided (for vision models)
+        if base64_images:
+            for base64_image in base64_images:
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{base64_image}"
+                    }
+                })
 
         # Add audio if provided
         if base64_audio:
@@ -95,14 +123,17 @@ class OmniClient:
                     "content": content
                 }
             ],
-            "modalities": modalities,
-            "audio": {
-                "voice": voice,
-                "format": "wav"
-            },
             "stream": True,
             "stream_options": {"include_usage": True}
         }
+
+        # Only add audio and modalities for audio-capable models
+        if self.model in ["qwen3-omni-flash"]:
+            payload["modalities"] = output_modalities
+            payload["audio"] = {
+                "voice": voice,
+                "format": "wav"
+            }
 
         if enable_thinking is not None:
             payload["extra_body"] = {"enable_thinking": enable_thinking}
@@ -166,29 +197,25 @@ class OmniClient:
                 "usage": usage_info
             }
 
-    async def text_to_speech(self, request: TTSInput) -> TTSOutput:
+    async def text_to_speech(self, request: TTSInput) -> TTSResult:
         """Convert text to speech using qwen3-omni-flash"""
 
         # Check cache first
         cache_path = self._get_tts_cache_path(request.text, request.voice)
         if cache_path.exists():
-            return TTSOutput(
+            return TTSResult(
                 text=request.text,
                 audio_file_path=str(cache_path)
             )
 
         # Prepare TTS prompt
-        tts_prompt = f"""You are a text-to-speech assistant. Please read the following text:
-
-`{request.text}`
-
-Please read this text exactly as written, without any opening or greeting."""
+        tts_prompt = self._get_prompt("text_to_speech", text=request.text)
 
         # Process request
         result = await self._process_omni_request(
             text_prompt=tts_prompt,
             voice=request.voice,
-            modalities=["text","audio"],
+            output_modalities=["text","audio"],
             enable_thinking=False
         )
 
@@ -198,7 +225,7 @@ Please read this text exactly as written, without any opening or greeting."""
             audio_np = np.frombuffer(mp3_bytes, dtype=np.int16)
             sf.write(cache_path, audio_np, samplerate=24000)
 
-            return TTSOutput(
+            return TTSResult(
                 text=request.text,
                 audio_file_path=str(cache_path)
             )
@@ -226,33 +253,14 @@ Please read this text exactly as written, without any opening or greeting."""
         audio_path = self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
 
         # Prepare grading prompt for read-aloud
-        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a student's read-aloud performance.
-
-Text: {request.question_text}
-
-Please evaluate the student's pronunciation, fluency, and accuracy based on their audio recording.
-
-Provide a score from 0-5 where:
-- 4.0-5.0: Excellent pronunciation and fluency, minimal errors
-- 3.0-3.5: Good performance with some pronunciation issues
-- 2.0-2.5: Fair performance, noticeable pronunciation problems
-- 0.0-1.5: Poor performance, significant pronunciation issues
-
-If you can't hear anything or the audio is extremely short, provide a score of 0.0 and feedback. This happens when the student feels nervous.
-
-Respond in JSON format:
-{{
-    "score": <number between 0-5>,
-    "feedback": "<specific feedback on pronunciation and fluency in Chinese>",
-    "explanation": "<the exact content of the student's response and detailed explanation of the evaluation in Chinese>"
-}}"""
+        grading_prompt = self._get_prompt("read_aloud_grading", question_text=request.question_text)
 
         # Process request
         try:
             result = await self._process_omni_request(
                 text_prompt=grading_prompt,
                 base64_audio=request.student_answer_audio,
-                modalities=["text"],
+                output_modalities=["text"],
                 enable_thinking=True
             )
 
@@ -284,36 +292,19 @@ Respond in JSON format:
         student_answer = request.student_answer_text
 
         # Prepare grading prompt for multiple choice
-        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a multiple-choice question. You're aware that doing math questions described in English is hard for 10-year-old Chinese kids, be encouraging even if the answer is wrong.
-
-Question: {request.question_text}
-
-Options:
-{chr(10).join(request.options) if request.options else 'No options provided'}
-
-Reference Answer: {request.reference_answer}
-
-Student Answer: {student_answer}
-
-Please evaluate if the student selected the correct option. The student should identify the letter (A, B, C, or D) corresponding to the correct answer.
-
-Score:
-- 5.0: Correct answer
-- 0.0: Incorrect answer or no answer provided
-
-Respond in JSON format:
-{{
-    "score": <5 or 0>,
-    "feedback": "<specific feedback about their answer choice in Chinese>",
-    "explanation": "<explanation of the correct answer and why the student's choice was correct/incorrect in Chinese>"
-}}"""
+        options_text = chr(10).join(request.options) if request.options else 'No options provided'
+        grading_prompt = self._get_prompt("multiple_choice_grading",
+                                         question_text=request.question_text,
+                                         options=options_text,
+                                         reference_answer=request.reference_answer,
+                                         student_answer=student_answer)
 
         # Process request
         try:
             result = await self._process_omni_request(
                 text_prompt=grading_prompt,
                 base64_audio=request.student_answer_audio,
-                modalities=["text"],
+                output_modalities=["text"],
                 enable_thinking=True
             )
 
@@ -345,39 +336,14 @@ Respond in JSON format:
         audio_path = self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
 
         # Prepare grading prompt for quick response
-        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a student's quick verbal response to an audio question. You're aware of the fact that quick-response questions are hard for non-native speakers, be encouraging even if the response is not perfect.
-
-Question Context: {request.question_text}
-
-Please evaluate the student's verbal response based on:
-1. Relevance to the question
-2. Clarity of expression
-3. Fluency and Pronounciation
-
-The student heard the question in audio format and responded verbally. Their response should be evaluated for content comprehension and communication effectiveness.
-
-Provide a score from 0-5 where:
-- 4.0-5.0: Excellent, relevant, and accurate response
-- 3.0-3.5: Good response with minor issues
-- 2.0-2.5: Partially correct or somewhat relevant
-- 0.0-1.5: Incorrect, irrelevant, or incomprehensible
-
-If you can't hear anything meaningful or the audio is extremely short, provide a score of 0.0 and feedback. This happens when the student's nervous or doesn't know how to answer.
-
-Respond in JSON format:
-{{
-    "score": <number between 0-5>,
-    "feedback": "<specific feedback about the content and delivery in Chinese>",
-    "explanation": "<the exact content of student's response and detailed evaluation of the response in Chinese>",
-    "suggested_answer": "<an example of a good answer to this question If score < 1, always in English>"
-}}"""
+        grading_prompt = self._get_prompt("quick_response_grading", question_text=request.question_text)
 
         # Process request
         try:
             result = await self._process_omni_request(
                 text_prompt=grading_prompt,
                 base64_audio=request.student_answer_audio,
-                modalities=["text"],
+                output_modalities=["text"],
                 enable_thinking=True
             )
 
@@ -411,37 +377,14 @@ Respond in JSON format:
         audio_path = self._cache_student_audio(request.student_answer_audio, request.session_id, request.question_id)
 
         # Prepare grading prompt for translation
-        grading_prompt = f"""You are a friendly, passionate and encouraging English & math teacher for 10-year-old Chinese students. You are grading a student's translation performance. You're aware of the fact that translation questions are hard for non-native speakers, be encouraging even if the translation is not perfect.
-
-Chinese Text: {request.question_text}
-
-The student was asked to translate the Chinese text into English and provide their answer verbally. Please evaluate their translation based on:
-1. Accuracy of translation
-2. Grammar and vocabulary usage
-3. Pronunciation and clarity of spoken English
-
-Provide a score from 0-5 where:
-- 4.0-5.0: Excellent translation, accurate grammar, natural expression
-- 3.0-3.5: Good translation with minor errors
-- 2.0-2.5: Fair translation with noticeable issues
-- 0.0-1.5: Poor translation, significant errors
-
-If you can't hear anything meaningful or the audio is extremely short, provide a score of 0.0 and feedback. This happens when the student's nervous or doesn't know how to answer.
-
-Respond in JSON format:
-{{
-    "score": <number between 0-5>,
-    "feedback": "<specific feedback on translation accuracy and spoken English in Chinese>",
-    "explanation": "<the exact content of the student's response and detailed evaluation of the translation performance in Chinese>",
-    "suggested_answer": "<an example of a good English translation If score < 1, always in English>"
-}}"""
+        grading_prompt = self._get_prompt("translation_grading", question_text=request.question_text)
 
         # Process request
         try:
             result = await self._process_omni_request(
                 text_prompt=grading_prompt,
                 base64_audio=request.student_answer_audio,
-                modalities=["text"],
+                output_modalities=["text"],
                 enable_thinking=True
             )
 
@@ -468,6 +411,61 @@ Respond in JSON format:
                 feedback="Grading failed",
                 explanation="Technical issue with AI processing"
             )
+
+    async def convert_files_to_questions(self, request: ConversionInput) -> ConversionResult:
+        """Convert files to exam questions using vision model"""
+        # Get the conversion prompt
+        conversion_prompt = self._get_prompt("file_conversion")
+
+        # Handle text input - concatenate and insert into prompt
+        if request.texts:
+            combined_text = "\n\n".join(request.texts)
+            full_prompt = f"""{conversion_prompt}
+
+## Content to analyze:
+{combined_text}"""
+        else:
+            # Handle image input
+            full_prompt = conversion_prompt
+            
+        base64_images = request.images
+
+        # Process the conversion request
+        result = await self._process_omni_request(
+            text_prompt=full_prompt,
+            base64_images=base64_images,
+            enable_thinking=True
+        )
+
+        # Parse the JSON response
+        response_text = result["text_response"].strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:-3]
+        elif response_text.startswith("```"):
+            response_text = response_text[3:-3]
+
+        # Repair and parse JSON
+        repaired_json = repair_json(response_text)
+        conversion_data = json.loads(repaired_json)
+
+        # Convert to Question objects
+        questions = []
+        for q_data in conversion_data.get("extracted_questions", []):
+            question = Question(
+                id=q_data["id"],
+                type=q_data["type"],
+                text=q_data["text"],
+                options=q_data.get("options"),
+                reference_answer=q_data.get("reference_answer"),
+                time_limit=q_data["time_limit"]
+            )
+            questions.append(question)
+
+        return ConversionResult(
+            success=conversion_data["success"],
+            message=conversion_data["message"],
+            extracted_questions=questions
+        )
 
     async def grade_answer(self, request: GradingInput) -> GradingResult:
         """Grade student answer based on question type"""

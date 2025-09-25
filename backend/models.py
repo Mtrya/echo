@@ -7,8 +7,8 @@ class Question(BaseModel):
     id: str
     type: str  # "multiple_choice", "read_aloud", "quick_response", "translation"
     text: str
-    options: Optional[List[str]] = None
-    reference_answer: Optional[str] = None
+    options: Optional[List[str]] = None # only for multiple-choice questions
+    reference_answer: Optional[str] = None # only for multiple-choice questions
     time_limit: int = 30
 
 class SectionInstruction(BaseModel):
@@ -27,7 +27,7 @@ class GradingInput(BaseModel):
     question_id: str
     question_type: str  # "multiple_choice", "read_aloud", "quick_response", "translation"
     student_answer_text: Optional[str] = None
-    student_answer_audio: Optional[str] = None
+    student_answer_audio: Optional[str] = None # base64 string of student answer audio (mp3 format)
     reference_answer: Optional[str] = None
     question_text: str
     options: Optional[List[str]] = None # ["A:6","B:7","C:8","D:9"], for multiple choice
@@ -44,9 +44,18 @@ class TTSInput(BaseModel):
     text: str
     voice: str = "Cherry"
 
-class TTSOutput(BaseModel):
+class TTSResult(BaseModel):
     text: str
     audio_file_path: str  # path to saved audio file (.mp3)
+
+class ConversionInput(BaseModel):
+    texts: Optional[List[str]]
+    images: Optional[List[str]] # list of base64 image strings for input images, must be png format
+
+class ConversionResult(BaseModel):
+    success: bool
+    message: str
+    extracted_questions: List[Question]
 
 # Session Management Models
 class SessionStartRequest(BaseModel):
@@ -93,18 +102,17 @@ class AudioGenerationStatus(BaseModel):
     audio_generation: str  # "generating", "completed"
     session_id: str
 
-# File Conversion Models
-class DocxConversionRequest(BaseModel):
-    filename: str
-    output_format: str = "yaml"
+class FileConversionRequest(BaseModel):
+    filenames: List[str]
+    file_contents: List[str]  # base64 encoded
 
-class DocxConversionResponse(BaseModel):
+class FileConversionResponse(BaseModel):
     success: bool
-    output_filename: str
-    questions_extracted: int
     message: str
+    extracted_questions: List[Question]
+    yaml_output: Optional[str] = None
+    output_filename: Optional[str] = None
 
-# Error Models
 class ErrorResponse(BaseModel):
     error: str
     message: str

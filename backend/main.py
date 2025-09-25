@@ -11,20 +11,20 @@ from pathlib import Path
 # Import our modules
 try:
     from .models import (
-        SessionStartRequest, SessionResponse, QuestionResponse, 
+        SessionStartRequest, SessionResponse, QuestionResponse,
         AnswerSubmission, AnswerResponse, FinalResult,
-        DocxConversionRequest, DocxConversionResponse
+        FileConversionRequest, FileConversionResponse
     )
     from .exam_logic import ExamManager
-    from .file_conversion import FileProcessor
+    from .file_conversion import FileConverter
 except ImportError:
     from models import (
-        SessionStartRequest, SessionResponse, QuestionResponse, 
+        SessionStartRequest, SessionResponse, QuestionResponse,
         AnswerSubmission, AnswerResponse, FinalResult,
-        DocxConversionRequest, DocxConversionResponse
+        FileConversionRequest, FileConversionResponse
     )
     from exam_logic import ExamManager
-    from file_conversion import FileProcessor
+    from file_conversion import FileConverter
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -44,7 +44,7 @@ app.add_middleware(
 
 # Initialize managers
 exam_manager = ExamManager()
-file_converter = FileProcessor()
+file_converter = FileConverter()
 
 # Mount static files for audio cache
 app.mount("/audio_cache", StaticFiles(directory="../audio_cache"), name="audio_cache")
@@ -154,15 +154,28 @@ async def get_results(session_id: str):
         raise HTTPException(status_code=500, detail=f"Error getting results: {str(e)}")
 
 # File conversion endpoint
-@app.post("/convert/docx", response_model=DocxConversionResponse)
-async def convert_docx(request: DocxConversionRequest):
-    """Convert DOCX file to exam format"""
+@app.post("/convert/file", response_model=FileConversionResponse)
+async def convert_file(request: FileConversionRequest):
+    """Convert file to exam format using qwen3-vl-plus"""
     try:
-        return await file_converter.convert_docx(request)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        return await file_converter.convert_files(request)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error converting file: {str(e)}")
+
+# Rename exam file endpoint
+@app.post("/rename-exam")
+async def rename_exam(request: dict):
+    """Rename an exam file in the exams directory"""
+    try:
+        old_name = request.get("old_name")
+        new_name = request.get("new_name")
+
+        if not old_name or not new_name:
+            raise HTTPException(status_code=400, detail="Both old_name and new_name are required")
+
+        return await file_converter.rename_exam_file(old_name, new_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error renaming exam file: {str(e)}")
 
 # Error handler
 @app.exception_handler(Exception)
@@ -178,20 +191,7 @@ async def general_exception_handler(request, exc):
     )
 
 # Run the application
-if __name__ == "__main__":
-    # Check for required environment variables
-    required_env_vars = ["SILICONFLOW_API_KEY"]
-    missing_vars = []
-    
-    for var in required_env_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
-    
-    if missing_vars:
-        print(f"Missing required environment variables: {', '.join(missing_vars)}")
-        print("Please set these variables in your .env file")
-        exit(1)
-    
+if __name__ == "__main__":    
     # Run the server
     uvicorn.run(
         "main:app",
