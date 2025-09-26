@@ -62,8 +62,17 @@ Thumbs.db
 exams/*
 !exams/exam-20[0-9][0-9].yaml
 
-audio_cache/*
-!audio_cache/tts
+audio_cache/student_answers/*
+audio_cache/tts/*
+!audio_cache/tts/audio-test.mp3
 
+# Secrets
 config.yaml
+
+# Development files
 test_files
+
+*.md
+!README.md
+!CLAUDE.md
+image.png
