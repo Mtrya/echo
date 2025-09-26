@@ -74,6 +74,12 @@ jobs:
         copy dist\Echo.exe dist\Echo-Portable\
         copy README.md dist\Echo-Portable\ 2>nul || echo README.md not found
 
+    - name: Clean up existing release
+      run: |
+        gh release delete v1.0.0 --yes || echo "No existing release to delete"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v1
       with:
@@ -82,5 +88,8 @@ jobs:
           dist/Echo-Portable/**
         draft: false
         prerelease: false
+        generate_release_notes: true
+        tag_name: v1.0.0
+        name: Echo v1.0.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
