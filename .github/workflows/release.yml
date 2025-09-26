@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -57,22 +60,26 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: pyinstaller echo.spec --clean --noconfirm
 
-    - name: Create portable package
+    - name: Create portable package (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         mkdir -p dist/Echo-Portable
-        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-          cp dist/Echo dist/Echo-Portable/
-        else
-          cp dist/Echo.exe dist/Echo-Portable/
-        fi
+        cp dist/Echo dist/Echo-Portable/
         cp README.md dist/Echo-Portable/ 2>/dev/null || true
+
+    - name: Create portable package (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        mkdir -p dist/Echo-Portable
+        copy dist\Echo.exe dist\Echo-Portable\
+        copy README.md dist\Echo-Portable\ 2>nul || echo README.md not found
 
     - name: Upload Release Assets
       uses: softprops/action-gh-release@v1
       with:
         files: |
           dist/Echo*
-          dist/Echo-Portable/*
+          dist/Echo-Portable/**
         draft: false
         prerelease: false
       env:
