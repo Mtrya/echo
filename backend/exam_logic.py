@@ -13,6 +13,7 @@ try:
     )
     from .omni_client import OmniClient
     from .config import config
+    from .paths import get_paths
 except ImportError:
     from models import (
         Question, Exam, SectionInstruction, GradingInput, GradingResult, TTSInput, AudioGenerationStatus,
@@ -21,6 +22,7 @@ except ImportError:
     )
     from omni_client import OmniClient
     from config import config
+    from paths import get_paths
 
 
 class ExamSession:
@@ -100,7 +102,8 @@ class ExamManager:
     def __init__(self):
         self.sessions: Dict[str, ExamSession] = {}
         self._omni_client = None
-        self.completed_exams_file = Path("../completed_exams.json")
+        paths = get_paths()
+        self.completed_exams_file = paths.completed_exams_file
         self._completed_exams = self._load_completed_exams()
 
     def get_omni_client(self):
@@ -320,7 +323,8 @@ class ExamManager:
     
     async def list_available_exams(self, include_completed: bool = True) -> List[str]:
         """List available exam files with optional filtering of completed exams"""
-        exam_dir = Path("../exams")
+        paths = get_paths()
+        exam_dir = paths.exams_dir
         if not exam_dir.exists():
             return []
 
@@ -341,7 +345,8 @@ class ExamManager:
     
     async def _load_exam_from_yaml(self, file_path: str) -> Exam:
         """Load exam from YAML file and sort questions by type"""
-        full_path = Path("../exams") / file_path
+        paths = get_paths()
+        full_path = paths.exams_dir / file_path
         if not full_path.exists():
             raise FileNotFoundError(f"Exam file not found: {file_path}")
 

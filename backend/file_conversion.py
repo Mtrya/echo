@@ -15,10 +15,12 @@ try:
     from .models import ConversionInput, ConversionResult, FileConversionRequest, FileConversionResponse, Question
     from .omni_client import OmniClient
     from .config import config
+    from .paths import get_paths
 except ImportError:
     from models import ConversionInput, ConversionResult, FileConversionRequest, FileConversionResponse, Question
     from omni_client import OmniClient
     from config import config
+    from paths import get_paths
 
 class FileParser:
     """
@@ -266,7 +268,8 @@ class FileConverter:
         from pathlib import Path
 
         # Define exams directory path
-        exams_dir = Path("../exams")
+        paths = get_paths()
+        exams_dir = paths.exams_dir
 
         # Create paths
         old_path = exams_dir / old_name
@@ -301,7 +304,8 @@ class FileConverter:
         from pathlib import Path
 
         # Define exams directory path
-        exams_dir = Path("../exams")
+        paths = get_paths()
+        exams_dir = paths.exams_dir
 
         # Create path
         exam_path = exams_dir / exam_filename

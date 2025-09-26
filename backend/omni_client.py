@@ -23,9 +23,11 @@ from json_repair import repair_json
 try:
     from .models import TTSResult, TTSInput, GradingInput, GradingResult, ConversionInput, ConversionResult, Question
     from .config import config
+    from .paths import get_paths
 except ImportError:
     from models import TTSResult, TTSInput, GradingInput, GradingResult, ConversionInput, ConversionResult, Question
     from config import config
+    from paths import get_paths
 
 class OmniClient:
     """Unified client for qwen3-omni-flash and qwen3-vl-plus models handling TTS, ASR, LLM, and vision functions"""
@@ -38,14 +40,14 @@ class OmniClient:
         if not self.api_key:
             raise ValueError("DASHSCOPE_API_KEY not found in configuration. Please set it in Settings.")
 
-        self.cache_dir = Path("../audio_cache")
-        self.tts_cache_dir = self.cache_dir / "tts"
-        self.student_audio_dir = self.cache_dir / "student_answers"
-        self.tts_cache_dir.mkdir(parents=True, exist_ok=True)
-        self.student_audio_dir.mkdir(parents=True, exist_ok=True)
+        # Get paths from centralized path management
+        paths = get_paths()
+        self.cache_dir = paths.audio_cache
+        self.tts_cache_dir = paths.tts_cache
+        self.student_audio_dir = paths.student_answers
 
         # Load prompt templates
-        self.prompts_dir = Path(__file__).parent / "prompts"
+        self.prompts_dir = paths.prompts_dir
         self.prompts = self._load_prompts()
 
     def _load_prompts(self) -> Dict[str, str]:

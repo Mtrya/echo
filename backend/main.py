@@ -48,13 +48,30 @@ app.add_middleware(
 exam_manager = ExamManager()
 file_converter = FileConverter()
 
-# Mount static files for audio cache
-app.mount("/audio_cache", StaticFiles(directory="../audio_cache"), name="audio_cache")
+# Import paths after module initialization
+try:
+    from .paths import get_paths
+except ImportError:
+    from paths import get_paths
 
-# Root endpoint
-@app.get("/")
-async def root():
-    """Root endpoint with API information"""
+# Mount static files for audio cache and frontend
+paths = get_paths()
+app.mount("/audio_cache", StaticFiles(directory=str(paths.audio_cache)), name="audio_cache")
+
+# Mount frontend static files
+frontend_path = paths.base_path / "frontend" / "dist"
+if frontend_path.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+else:
+    # Fallback for development when running from source
+    dev_frontend_path = Path(__file__).parent.parent / "frontend" / "dist"
+    if dev_frontend_path.exists():
+        app.mount("/", StaticFiles(directory=str(dev_frontend_path), html=True), name="frontend")
+
+# API info endpoint (moved from root to avoid conflict with frontend)
+@app.get("/api/info")
+async def api_info():
+    """API information endpoint"""
     return {
         "message": "Echo - LLM-Powered Exam Platform API",
         "version": "1.0.0",
