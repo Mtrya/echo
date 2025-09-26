@@ -74,9 +74,15 @@ class AppPaths:
         # Copy default config if it doesn't exist
         if not self.config_file.exists():
             source_config = source_base / "config.yaml"
+            source_config_example = source_base / "config.yaml.example"
+
             if source_config.exists():
                 import shutil
                 shutil.copy(source_config, self.config_file)
+            elif source_config_example.exists():
+                import shutil
+                shutil.copy(source_config_example, self.config_file)
+                print(f"Created config from template. Please edit {self.config_file} to add your API key.")
 
         # Copy default prompts if they don't exist
         if not any(self.prompts_dir.glob("*.txt")):

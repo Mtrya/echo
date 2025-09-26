@@ -10,7 +10,7 @@ a = Analysis(
         # Frontend build
         ('frontend/dist', 'frontend/dist'),
         # Configuration and data files
-        ('config.yaml', '.'),
+        ('config.yaml.example', '.'),
         ('prompts', 'prompts'),
         ('exams', 'exams'),
         # Include audio_cache directory structure (empty directories will be created)

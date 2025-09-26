@@ -67,6 +67,7 @@ audio_cache/tts/*
 
 # Secrets
 config.yaml
+!config.yaml.example
 
 # Development files
 test_files

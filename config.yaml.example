@@ -1,0 +1,15 @@
+api:
+  # Replace with your actual API key from https://dashscope.aliyun.com/
+  dashscope_key: YOUR_API_KEY_HERE
+
+models:
+  instruction_voice: Elias
+  omni_model: qwen3-omni-flash
+  response_voice: Cherry
+  vision_model: qwen3-vl-plus
+
+time_limits:
+  multiple_choice: 20
+  quick_response: 10
+  read_aloud: 10
+  translation: 20
