@@ -250,9 +250,3 @@ echo/
 - Don't ever return mock data. If there's an error, let it expose naturally instead of pretending that everything is working all right.
 - Always check API_DOCUMENTATION.md when implementing frontend services.
 - try-except blocks are **FORBIDDEN**.
-
-TODOs:
-
-- enhance audio testing page (frontend)
-- prompt engineering file_conversion.txt with few-shot examples
-- packaging

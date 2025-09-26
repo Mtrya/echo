@@ -1,0 +1,79 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y portaudio19-dev python3-dev
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+        cd ..
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        cd ..
+
+    - name: Build executable (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: pyinstaller echo.spec --clean --noconfirm
+
+    - name: Build executable (Windows)
+      if: matrix.os == 'windows-latest'
+      run: pyinstaller echo.spec --clean --noconfirm
+
+    - name: Create portable package
+      run: |
+        mkdir -p dist/Echo-Portable
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          cp dist/Echo dist/Echo-Portable/
+        else
+          cp dist/Echo.exe dist/Echo-Portable/
+        fi
+        cp README.md dist/Echo-Portable/ 2>/dev/null || true
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/Echo*
+          dist/Echo-Portable/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
