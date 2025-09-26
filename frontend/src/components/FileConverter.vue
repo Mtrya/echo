@@ -65,6 +65,55 @@
     </div>
 
     <!-- Conversion Result -->
+    <!-- Rename Modal -->
+    <div v-if="showRenameModal" class="modal-overlay" @click="cancelRename">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>📝 Name Your Exam</h3>
+          <button @click="cancelRename" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <p><strong>Current name:</strong> {{ currentFileName }}</p>
+          <div class="input-group">
+            <label for="exam-name">Enter custom name (without .yaml extension):</label>
+            <input
+              id="exam-name"
+              v-model="customExamName"
+              type="text"
+              placeholder="Enter exam name"
+              class="text-input"
+              @keyup.enter="confirmRename"
+            >
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelRename" class="btn btn-secondary">Cancel</button>
+          <button @click="confirmRename" class="btn btn-primary">Save Name</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click="cancelDelete">
+      <div class="modal-content delete-modal" @click.stop>
+        <div class="modal-header">
+          <h3>🗑️ Discard Exam</h3>
+          <button @click="cancelDelete" class="close-btn">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="warning-icon">⚠️</div>
+          <p>Are you sure you want to discard this exam?</p>
+          <p class="file-name"><strong>{{ examToDelete }}</strong></p>
+          <p class="warning-text">This action cannot be undone.</p>
+        </div>
+        <div class="modal-actions">
+          <button @click="cancelDelete" class="btn btn-secondary">Cancel</button>
+          <button @click="confirmDelete" class="btn btn-danger">Discard Exam</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conversion Result -->
     <div v-if="conversionResult" class="conversion-result">
       <h3>Conversion Result</h3>
 
@@ -137,6 +186,13 @@ export default {
     const conversionResult = ref(null)
     const generatedExamPath = ref('')
 
+    // Modal state
+    const showRenameModal = ref(false)
+    const showDeleteModal = ref(false)
+    const currentFileName = ref('')
+    const customExamName = ref('')
+    const examToDelete = ref('')
+
     const triggerFileInput = () => {
       fileInput.value.click()
     }
@@ -169,7 +225,7 @@ export default {
       })
 
       if (validFiles.length !== files.length) {
-        alert('Some files were skipped. Only .txt, .md, .docx, .pdf, .jpg, .jpeg, .png files are supported.')
+        console.log('Some files were skipped. Only .txt, .md, .docx, .pdf, .jpg, .jpeg, .png files are supported.')
       }
 
       selectedFiles.value = [...selectedFiles.value, ...validFiles]
@@ -203,7 +259,6 @@ export default {
 
     const convertFiles = async () => {
       if (selectedFiles.value.length === 0) {
-        alert('Please select at least one file')
         return
       }
 
@@ -236,44 +291,14 @@ export default {
         if (result.success && result.output_filename) {
           generatedExamPath.value = result.output_filename
 
-          // Prompt user for custom filename with better UI
+          // Show rename modal instead of browser prompt
           const fullPath = result.output_filename
           const fileName = fullPath.split('/').pop() // Extract just filename
           const defaultName = fileName.replace('.yaml', '')
 
-          // Create a more visually appealing modal-like prompt
-          const customName = prompt(
-            `📝 Name Your Exam\n\n` +
-            `Current name: ${fileName}\n\n` +
-            `Enter a custom name for your exam (without .yaml extension):`,
-            defaultName
-          )
-
-          if (customName && customName.trim() && customName.trim() !== defaultName) {
-            try {
-              const renameResponse = await fetch('http://localhost:8000/rename-exam', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  old_name: result.output_filename, // Send full path to backend
-                  new_name: customName.trim() + '.yaml'
-                })
-              })
-
-              if (renameResponse.ok) {
-                const renameResult = await renameResponse.json()
-                if (renameResult.success) {
-                  result.output_filename = renameResult.new_filename
-                  generatedExamPath.value = renameResult.new_filename
-                }
-              }
-            } catch (renameError) {
-              console.warn('Failed to rename file:', renameError)
-              // Don't fail the whole conversion if rename fails
-            }
-          }
+          currentFileName.value = fileName
+          customExamName.value = defaultName
+          showRenameModal.value = true
         }
 
       } catch (error) {
@@ -309,23 +334,69 @@ export default {
 
     const discardExam = async () => {
       if (!generatedExamPath.value) {
-        alert('No exam file to discard')
         return
       }
 
-      // Extract just the filename from the path
+      // Show delete confirmation modal instead of browser confirm
       const examFilename = generatedExamPath.value.split('/').pop()
+      examToDelete.value = examFilename
+      showDeleteModal.value = true
+    }
 
-      // Confirm before deletion
-      const confirmed = confirm(
-        `Are you sure you want to discard this exam?\n\n` +
-        `File: ${examFilename}\n\n` +
-        `This action cannot be undone.`
-      )
+    // Modal methods
+    const cancelRename = () => {
+      showRenameModal.value = false
+      currentFileName.value = ''
+      customExamName.value = ''
+    }
 
-      if (!confirmed) {
+    const confirmRename = async () => {
+      if (!customExamName.value.trim()) {
         return
       }
+
+      const oldName = conversionResult.value.output_filename
+      const newName = customExamName.value.trim() + '.yaml'
+
+      if (oldName.split('/').pop() === newName) {
+        // No change needed
+        cancelRename()
+        return
+      }
+
+      try {
+        const renameResponse = await fetch('http://localhost:8000/rename-exam', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            old_name: oldName,
+            new_name: newName
+          })
+        })
+
+        if (renameResponse.ok) {
+          const renameResult = await renameResponse.json()
+          if (renameResult.success) {
+            conversionResult.value.output_filename = renameResult.new_filename
+            generatedExamPath.value = renameResult.new_filename
+          }
+        }
+      } catch (renameError) {
+        console.warn('Failed to rename file:', renameError)
+      } finally {
+        cancelRename()
+      }
+    }
+
+    const cancelDelete = () => {
+      showDeleteModal.value = false
+      examToDelete.value = ''
+    }
+
+    const confirmDelete = async () => {
+      const examFilename = examToDelete.value
 
       try {
         const response = await fetch('/delete-exam', {
@@ -341,15 +412,16 @@ export default {
         const result = await response.json()
 
         if (result.success) {
-          alert(`✅ Exam discarded successfully!\n\n${result.message}`)
-          // Reset the converter state
           resetConverter()
         } else {
-          alert(`❌ Failed to discard exam: ${result.message}`)
+          // Show error in a more elegant way - could add a toast notification here
+          console.error('Failed to discard exam:', result.message)
         }
       } catch (error) {
         console.error('Error discarding exam:', error)
-        alert('❌ Network error while trying to discard exam. Please try again.')
+        // Network errors logged to console instead of showing alert
+      } finally {
+        cancelDelete()
       }
     }
 
@@ -359,6 +431,11 @@ export default {
       isConverting,
       selectedFiles,
       conversionResult,
+      showRenameModal,
+      showDeleteModal,
+      currentFileName,
+      customExamName,
+      examToDelete,
       triggerFileInput,
       handleDragOver,
       handleDragLeave,
@@ -371,7 +448,11 @@ export default {
       formatQuestionType,
       goHome,
       resetConverter,
-      discardExam
+      discardExam,
+      cancelRename,
+      confirmRename,
+      cancelDelete,
+      confirmDelete
     }
   }
 }
@@ -718,6 +799,200 @@ p {
   overflow-y: auto;
 }
 
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 0;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+.delete-modal {
+  border-top: 4px solid #dc3545;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-body p {
+  margin: 0 0 1rem 0;
+  color: #374151;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.text-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+}
+
+.warning-icon {
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #dc3545;
+}
+
+.file-name {
+  background: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.warning-text {
+  color: #dc3545;
+  font-weight: 500;
+  text-align: center;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.modal-actions .btn {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.modal-actions .btn-primary {
+  background: #16a34a;
+  color: white;
+}
+
+.modal-actions .btn-primary:hover {
+  background: #15803d;
+  transform: translateY(-2px);
+}
+
+.modal-actions .btn-secondary {
+  background: rgba(255, 255, 255, 0.8);
+  color: #16a34a;
+  border: 2px solid #16a34a;
+}
+
+.modal-actions .btn-secondary:hover {
+  background: white;
+  transform: translateY(-2px);
+}
+
+.modal-actions .btn-danger {
+  background: #dc2626;
+  color: white;
+}
+
+.modal-actions .btn-danger:hover {
+  background: #b91c1c;
+  transform: translateY(-2px);
+}
+
+.modal-actions .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .file-converter {
@@ -734,6 +1009,19 @@ p {
 
   .question-header {
     flex-wrap: wrap;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 1rem;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
   }
 }
 </style>
