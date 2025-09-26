@@ -1,32 +1,62 @@
 <template>
   <div class="audio-test">
-    <h2>Audio Test</h2>
-    <p>Please test your microphone before starting the exam.</p>
-    
-    <!-- Audio Playback Button -->
-    <button @click="playTestAudio" class="btn btn-primary">
-      {{ isPlaying ? 'Playing...' : 'Play Test Audio' }}
-    </button>
-    
-    <!-- Recording Button -->
-    <button @click="toggleRecording" class="btn" :class="isRecording ? 'btn-danger' : 'btn-secondary'">
-      {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
-    </button>
-    
-    <!-- Playback Recording Button -->
-    <button v-if="recordedAudio" @click="playRecordedAudio" class="btn btn-secondary">
-      {{ isPlayingRecording ? 'Playing Recording...' : 'Play Recording' }}
-    </button>
-    
-    <!-- Start Exam Button -->
-    <button
-      @click="startExam"
-      class="btn btn-primary"
-      :disabled="!canStartExam()"
-    >
-      {{ getStartButtonText() }}
-    </button>
-    
+    <div class="audio-test-card">
+      <!-- Test Audio Section -->
+      <div class="test-section">
+        <div class="section-title">🔊 Test Speaker</div>
+        <button @click="playTestAudio" class="btn btn-primary" :disabled="isPlaying">
+          {{ isPlaying ? '🔊 Playing...' : '🔊 Play Test Audio' }}
+        </button>
+      </div>
+
+      <!-- Reading Practice Section -->
+      <div class="reading-section">
+        <div class="section-title">📖 Practice Reading</div>
+        <div class="reading-card">
+          <div class="reading-text">
+            Computer is an amazing machine that helps us learn, work, and connect with people around the world.
+          </div>
+        </div>
+      </div>
+
+      <!-- Recording Section -->
+      <div class="recording-section">
+        <div class="section-title">🎙️ Test Microphone</div>
+        <div class="recording-controls">
+          <button @click="toggleRecording" class="btn" :class="isRecording ? 'btn-danger' : 'btn-secondary'">
+            {{ isRecording ? '⏹️ Stop Recording' : '🎙️ Start Recording' }}
+          </button>
+
+          <!-- Recording Visual Feedback -->
+          <div v-if="isRecording" class="recording-visual">
+            <div class="recording-indicator">●</div>
+            <div class="recording-timer">{{ formatTime(recordingTime) }}</div>
+            <div class="waveform">
+              <div v-for="i in 8" :key="i" class="wave-bar" :style="{ height: getWaveHeight(i) + '%' }"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Playback Recording -->
+        <div v-if="recordedAudio" class="playback-section">
+          <button @click="playRecordedAudio" class="btn btn-secondary" :disabled="isPlayingRecording">
+            {{ isPlayingRecording ? '🔊 Playing Recording...' : '🔊 Play Your Recording' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Start Exam Section -->
+      <div class="start-section">
+        <button
+          @click="startExam"
+          class="btn btn-primary start-btn"
+          :disabled="!canStartExam()"
+        >
+          {{ getStartButtonText() }}
+        </button>
+      </div>
+    </div>
+
     <!-- Audio elements (hidden) -->
     <audio ref="testAudioPlayer" hidden></audio>
     <audio ref="recordedAudioPlayer" hidden></audio>
@@ -56,6 +86,8 @@ export default {
     const isRecording = ref(false)
     const isPlayingRecording = ref(false)
     const recordedAudio = ref(null)
+    const recordingTime = ref(0)
+    const recordingInterval = ref(null)
     
     // MP3 recorder
     let mp3Recorder = null
@@ -93,14 +125,31 @@ export default {
       }
     }
 
-    // Play test audio (we'll use a simple beep for now)
+    // Play test audio using pre-recorded voice file
     const playTestAudio = async () => {
       if (isPlaying.value) return
 
       try {
         isPlaying.value = true
 
-        // Create a simple beep sound using Web Audio API
+        if (testAudioPlayer.value) {
+          testAudioPlayer.value.src = '/audio_cache/tts/audio-test.mp3'
+          testAudioPlayer.value.onended = () => {
+            isPlaying.value = false
+          }
+          await testAudioPlayer.value.play()
+        }
+      } catch (error) {
+        console.error('Failed to play test audio:', error)
+        // Fallback to beep if audio file fails
+        playBeepSound()
+        isPlaying.value = false
+      }
+    }
+
+    // Fallback beep sound
+    const playBeepSound = () => {
+      try {
         testAudioContext = new (window.AudioContext || window.webkitAudioContext)()
         const oscillator = testAudioContext.createOscillator()
         const gainNode = testAudioContext.createGain()
@@ -108,7 +157,7 @@ export default {
         oscillator.connect(gainNode)
         gainNode.connect(testAudioContext.destination)
 
-        oscillator.frequency.setValueAtTime(800, testAudioContext.currentTime) // 800 Hz beep
+        oscillator.frequency.setValueAtTime(800, testAudioContext.currentTime)
         oscillator.type = 'sine'
 
         gainNode.gain.setValueAtTime(0.3, testAudioContext.currentTime)
@@ -117,18 +166,14 @@ export default {
         oscillator.start(testAudioContext.currentTime)
         oscillator.stop(testAudioContext.currentTime + 1)
 
-        // Clean up audio context after beep
         setTimeout(() => {
           if (testAudioContext) {
             testAudioContext.close()
             testAudioContext = null
           }
-          isPlaying.value = false
         }, 1000)
-
       } catch (error) {
-        console.error('Failed to play test audio:', error)
-        isPlaying.value = false
+        console.error('Failed to play beep sound:', error)
       }
     }
 
@@ -141,6 +186,13 @@ export default {
             const mp3Blob = await mp3Recorder.stop()
             recordedAudio.value = URL.createObjectURL(mp3Blob)
             mp3Recorder = null  // Reset for next recording
+
+            // Stop recording timer
+            if (recordingInterval.value) {
+              clearInterval(recordingInterval.value)
+              recordingInterval.value = null
+            }
+            recordingTime.value = 0
 
             // Auto-play the recording after stopping
             setTimeout(() => {
@@ -157,6 +209,7 @@ export default {
           try {
             await mp3Recorder.start()
             isRecording.value = true
+            startRecordingTimer()
           } catch (error) {
             console.error('Failed to start MP3 recording:', error)
           }
@@ -166,11 +219,36 @@ export default {
           try {
             await mp3Recorder.start()
             isRecording.value = true
+            startRecordingTimer()
           } catch (error) {
             console.error('Failed to start MP3 recording:', error)
           }
         }
       }
+    }
+
+    // Start recording timer
+    const startRecordingTimer = () => {
+      recordingTime.value = 0
+      recordingInterval.value = setInterval(() => {
+        recordingTime.value++
+      }, 1000)
+    }
+
+    // Format time as MM:SS
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60)
+      const secs = seconds % 60
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+
+    // Generate waveform height for visual effect
+    const getWaveHeight = (index) => {
+      if (!isRecording.value) return 20
+      // Create a simple wave effect
+      const base = 30
+      const variation = Math.sin((Date.now() / 200) + (index * 0.5)) * 20
+      return Math.max(20, Math.min(80, base + variation))
     }
 
     // Play the recorded audio
@@ -215,6 +293,12 @@ export default {
       if (recordedAudio.value) {
         URL.revokeObjectURL(recordedAudio.value)
         recordedAudio.value = null
+      }
+
+      // Clean up recording timer
+      if (recordingInterval.value) {
+        clearInterval(recordingInterval.value)
+        recordingInterval.value = null
       }
     }
 
@@ -277,13 +361,16 @@ export default {
       isRecording,
       isPlayingRecording,
       recordedAudio,
+      recordingTime,
       audioGenerationStatus,
       playTestAudio,
       toggleRecording,
       playRecordedAudio,
       startExam,
       canStartExam,
-      getStartButtonText
+      getStartButtonText,
+      formatTime,
+      getWaveHeight
     }
   }
 }
@@ -297,20 +384,137 @@ export default {
   padding: 2rem;
 }
 
-.audio-test h2 {
-  color: #16a34a;
-  margin-bottom: 1rem;
+.audio-test-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+  border: 1px solid rgba(22, 163, 74, 0.1);
 }
 
-.audio-test p {
+.card-header {
+  margin-bottom: 1.5rem;
+}
+
+.card-header h2 {
+  color: #16a34a;
+  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.card-header p {
   color: #374151;
-  margin-bottom: 2rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #16a34a;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.test-section,
+.reading-section,
+.recording-section,
+.start-section {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(22, 163, 74, 0.1);
+  text-align: center;
+}
+
+.test-section:last-child,
+.reading-section:last-child,
+.recording-section:last-child,
+.start-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.reading-card {
+  background: rgba(22, 163, 74, 0.03);
+  border: 1px solid rgba(22, 163, 74, 0.1);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: left;
+}
+
+.reading-text {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #374151;
+  font-weight: 500;
+}
+
+.recording-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.recording-visual {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(22, 163, 74, 0.05);
+  border-radius: 12px;
+  min-width: 300px;
+}
+
+.recording-indicator {
+  color: #dc2626;
+  font-size: 1.5rem;
+  animation: pulse 1s infinite;
+}
+
+.recording-timer {
+  font-family: 'Courier New', monospace;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #374151;
+  min-width: 60px;
+}
+
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+}
+
+.wave-bar {
+  width: 4px;
+  background: linear-gradient(to top, #16a34a, #22c55e);
+  border-radius: 2px;
+  transition: height 0.1s ease;
+  min-height: 4px;
+}
+
+.playback-section {
+  margin-top: 1rem;
+}
+
+.start-btn {
+  min-width: 250px;
+  font-size: 1.1rem;
+  padding: 1.2rem 2rem;
 }
 
 /* Button Layout */
 .audio-test .btn {
-  margin: 0.5rem;
+  margin: 0.5rem auto;
   min-width: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 /* Button Styles */
