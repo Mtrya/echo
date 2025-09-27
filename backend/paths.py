@@ -99,6 +99,15 @@ class AppPaths:
                     import shutil
                     shutil.copy(exam_file, self.exams_dir)
 
+        # Copy audio-test.mp3 if it doesn't exist
+        audio_test_file = self.tts_cache / "audio-test.mp3"
+        if not audio_test_file.exists():
+            source_audio_test = source_base / "audio_cache" / "tts" / "audio-test.mp3"
+            if source_audio_test.exists():
+                import shutil
+                shutil.copy(source_audio_test, audio_test_file)
+                print(f"Copied audio-test.mp3 to {audio_test_file}")
+
     def get_bundled_path(self, relative_path: str) -> Path:
         """Get path to bundled resources (for PyInstaller)."""
         if getattr(sys, 'frozen', False):

@@ -13,6 +13,8 @@ a = Analysis(
         ('config.yaml.example', '.'),
         ('prompts', 'prompts'),
         ('exams', 'exams'),
+        # Audio files
+        ('audio_cache/tts/audio-test.mp3', 'audio_cache/tts'),
         # Include audio_cache directory structure (empty directories will be created)
         ('audio_cache', 'audio_cache'),
     ],

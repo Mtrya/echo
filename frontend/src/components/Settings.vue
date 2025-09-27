@@ -194,7 +194,7 @@ export default {
 
     const loadSettings = async () => {
       try {
-        const response = await fetch('http://localhost:8000/settings')
+        const response = await fetch('/settings')
         const data = await response.json()
 
         if (data.success) {
@@ -216,7 +216,7 @@ export default {
       apiTestResult.value = null
 
       try {
-        const response = await fetch('http://localhost:8000/test-api', {
+        const response = await fetch('/test-api', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -251,7 +251,7 @@ export default {
       saveResult.value = null
 
       try {
-        const response = await fetch('http://localhost:8000/settings', {
+        const response = await fetch('/settings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

@@ -68,6 +68,7 @@ audio_cache/tts/*
 # Secrets
 config.yaml
 !config.yaml.example
+completed_exams.json
 
 # Development files
 test_files

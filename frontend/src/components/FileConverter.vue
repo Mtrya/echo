@@ -274,7 +274,7 @@ export default {
         const filenames = selectedFiles.value.map(file => file.name)
 
         // Send to backend
-        const response = await fetch('http://localhost:8000/convert/file', {
+        const response = await fetch('/convert/file', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -365,7 +365,7 @@ export default {
       }
 
       try {
-        const renameResponse = await fetch('http://localhost:8000/rename-exam', {
+        const renameResponse = await fetch('/rename-exam', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
