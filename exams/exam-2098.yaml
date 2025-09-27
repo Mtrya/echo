@@ -5,7 +5,7 @@ exam:
   section_instructions:
     read_aloud:
       text: "For read aloud questions, you should read displayed English sentences aloud."
-      tts: "Can you hear this clearly? This is a test to make sure your audio is working perfectly. Please listen carefully and get ready for your English exam!Can you hear this clearly? This is a test to make sure your audio is working perfectly. Please listen carefully and get ready for your English exam!Can you hear this clearly? This is a test to make sure your audio is working perfectly. Please listen carefully and get ready for your English exam!"
+      tts: "For read aloud questions, you should read displayed English sentences aloud"
 
     multiple_choice:
       text: "For multiple choice questions, read the question carefully and choose the best answer from A, B, C or D."
