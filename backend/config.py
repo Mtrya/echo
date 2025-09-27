@@ -1,4 +1,5 @@
 import os
+import sys
 import yaml
 from pathlib import Path
 from typing import Dict, Any, List
@@ -25,9 +26,55 @@ class Config:
 
   
     def __init__(self):
-        self.config_file = Path(__file__).parent.parent / "config.yaml"
+        self.config_file = self._get_config_path()
         self.config = self._load_default_config()
         self.load()
+
+    @staticmethod
+    def _get_config_path() -> Path:
+        """Get the configuration file path"""
+        if getattr(sys, 'frozen', False):
+            # Running as PyInstaller bundle - use AppData location
+            import os
+            if os.name == 'nt':  # Windows
+                import ctypes
+
+                # Define HRESULT manually for PyInstaller compatibility
+                try:
+                    from ctypes import wintypes
+                    HRESULT = wintypes.HRESULT
+                except AttributeError:
+                    # PyInstaller sometimes doesn't include all wintypes
+                    HRESULT = ctypes.c_long
+
+                CSIDL_LOCAL_APPDATA = 0x001c
+                SHGetFolderPath = ctypes.windll.shell32.SHGetFolderPathW
+
+                try:
+                    from ctypes import wintypes
+                    SHGetFolderPath.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.HANDLE, wintypes.DWORD, wintypes.LPCWSTR]
+                    SHGetFolderPath.restype = HRESULT
+                    path_buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+                    result = SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, path_buf)
+                    if result == 0:
+                        return Path(path_buf.value) / "Echo" / "config.yaml"
+                    else:
+                        return Path.home() / "AppData" / "Local" / "Echo" / "config.yaml"
+                except AttributeError:
+                    # Fallback if wintypes are not available
+                    SHGetFolderPath.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint, ctypes.c_wchar_p]
+                    SHGetFolderPath.restype = HRESULT
+                    path_buf = ctypes.create_unicode_buffer(260)  # MAX_PATH
+                    result = SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, path_buf)
+                    if result == 0:
+                        return Path(path_buf.value) / "Echo" / "config.yaml"
+                    else:
+                        return Path.home() / "AppData" / "Local" / "Echo" / "config.yaml"
+            else:
+                return Path.home() / ".echo" / "config.yaml"
+        else:
+            # Running in development environment
+            return Path(__file__).parent.parent / "config.yaml"
 
     def _load_default_config(self) -> Dict[str, Any]:
         """Load default configuration"""
