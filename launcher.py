@@ -27,19 +27,9 @@ sys.path.insert(0, str(project_root))
 def get_app_data_path():
     """Get the application data directory for Echo."""
     if os.name == 'nt':  # Windows
-        import ctypes
-        from ctypes import wintypes
-
-        CSIDL_LOCAL_APPDATA = 0x001c
-        SHGetFolderPath = ctypes.windll.shell32.SHGetFolderPathW
-        SHGetFolderPath.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.HANDLE, wintypes.DWORD, wintypes.LPCWSTR]
-        SHGetFolderPath.restype = wintypes.HRESULT
-
-        path_buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
-        result = SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, path_buf)
-
-        if result == 0:
-            return Path(path_buf.value) / "Echo"
+        appdata = os.environ.get('LOCALAPPDATA')
+        if appdata:
+            return Path(appdata) / "Echo"
         else:
             return Path.home() / "AppData" / "Local" / "Echo"
     else:

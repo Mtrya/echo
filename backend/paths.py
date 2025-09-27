@@ -35,43 +35,11 @@ class AppPaths:
         if getattr(sys, 'frozen', False):
             # Running as PyInstaller bundle
             if os.name == 'nt':  # Windows
-                import ctypes
-
-                # Define HRESULT manually for PyInstaller compatibility
-                try:
-                    from ctypes import wintypes
-                    HRESULT = wintypes.HRESULT
-                except AttributeError:
-                    # PyInstaller sometimes doesn't include all wintypes
-                    HRESULT = ctypes.c_long
-
-                CSIDL_LOCAL_APPDATA = 0x001c
-                SHGetFolderPath = ctypes.windll.shell32.SHGetFolderPathW
-
-                try:
-                    from ctypes import wintypes
-                    SHGetFolderPath.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.HANDLE, wintypes.DWORD, wintypes.LPCWSTR]
-                    SHGetFolderPath.restype = HRESULT
-
-                    path_buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
-                    result = SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, path_buf)
-
-                    if result == 0:
-                        return Path(path_buf.value) / "Echo"
-                    else:
-                        return Path.home() / "AppData" / "Local" / "Echo"
-                except AttributeError:
-                    # Fallback if wintypes are not available
-                    SHGetFolderPath.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_uint, ctypes.c_wchar_p]
-                    SHGetFolderPath.restype = HRESULT
-
-                    path_buf = ctypes.create_unicode_buffer(260)  # MAX_PATH
-                    result = SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, path_buf)
-
-                    if result == 0:
-                        return Path(path_buf.value) / "Echo"
-                    else:
-                        return Path.home() / "AppData" / "Local" / "Echo"
+                appdata = os.environ.get('LOCALAPPDATA')
+                if appdata:
+                    return Path(appdata) / "Echo"
+                else:
+                    return Path.home() / "AppData" / "Local" / "Echo"
             else:
                 return Path.home() / ".echo"
         else:

@@ -1,6 +1,6 @@
 api:
   # Replace with your actual API key from https://dashscope.aliyun.com/
-  dashscope_key: YOUR_API_KEY_HERE
+  dashscope_key: '' # Your DashScope API Key here
 
 models:
   instruction_voice: Elias
