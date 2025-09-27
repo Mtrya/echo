@@ -49,6 +49,8 @@ jobs:
         import subprocess
         subprocess.run(['pip', 'install'] + deps, check=True)
         "
+        # Install certifi for SSL certificate support
+        pip install certifi
 
     - name: Install frontend dependencies
       run: |

@@ -51,6 +51,7 @@ a = Analysis(
         'json',
         'asyncio',
         'shutil',
+        'certifi',
     ],
     hookspath=[],
     hooksconfig={},

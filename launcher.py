@@ -11,6 +11,7 @@ import time
 import signal
 from pathlib import Path
 import uvicorn
+import certifi
 
 # Add the project root to Python path
 if getattr(sys, 'frozen', False):
@@ -108,26 +109,43 @@ def setup_signal_handler():
 def main():
     """Main application entry point."""
     print("Starting Echo Application...")
+    print(f"Python version: {sys.version}")
+    print(f"Platform: {sys.platform}")
+    print(f"Frozen (packaged): {getattr(sys, 'frozen', False)}")
+
+    # Set up SSL certificates for HTTPS connections
+    try:
+        os.environ['SSL_CERT_FILE'] = certifi.where()
+        print(f"Using SSL certificates from: {certifi.where()}")
+    except Exception as e:
+        print(f"Warning: Could not set SSL certificates: {e}")
 
     try:
         # Setup signal handling
         setup_signal_handler()
 
         # Setup directories and copy default files
+        print("Setting up directories...")
         paths = setup_directories()
+        print(f"App data directory: {paths.base_path}")
 
         # Find available port
+        print("Finding available port...")
         port = find_available_port()
         print(f"Starting server on port {port}")
 
         # Set working directory to app data for consistent relative paths
+        print(f"Changing working directory to: {paths.base_path}")
         os.chdir(paths.base_path)
 
         # Add project root to Python path for imports
         sys.path.insert(0, str(project_root))
+        print(f"Project root added to Python path: {project_root}")
 
         # Import the app directly to avoid string import issues
+        print("Importing FastAPI app...")
         from backend.main import app
+        print("FastAPI app imported successfully")
 
         # Launch browser in separate thread
         launch_browser(port)
@@ -153,11 +171,19 @@ def main():
     except KeyboardInterrupt:
         print("\nEcho stopped by user")
     except Exception as e:
-        print(f"Error starting Echo: {e}")
-        print("Please check the following:")
+        print(f"\n" + "="*50)
+        print(f"ERROR starting Echo: {e}")
+        print("="*50)
+        print("\nPlease check the following:")
         print("1. All required files are in place")
-        print("2. Port 8000 is not already in use")
+        print("2. Port 8000-8009 is not already in use")
         print("3. You have sufficient permissions")
+        print("4. Your antivirus is not blocking the application")
+        print("\nPress Enter to exit...")
+        try:
+            input()
+        except:
+            pass
         sys.exit(1)
 
 
