@@ -16,6 +16,7 @@ import json
 import time
 import hashlib
 import numpy as np
+import ssl
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import soundfile as sf
@@ -151,7 +152,18 @@ class OmniClient:
         audio_response = ""
         usage_info = None
 
-        async with aiohttp.ClientSession() as session:
+        # Create SSL context for PyInstaller compatibility
+        try:
+            # Try to use system certificates first
+            ssl_context = ssl.create_default_context()
+        except:
+            # Fallback to SSL verification disabled for PyInstaller environments
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,

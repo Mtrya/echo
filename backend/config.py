@@ -189,12 +189,23 @@ class Config:
                 "modalities": ["text"]
             }
 
-            response = requests.post(
-                "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-                headers=headers,
-                json=test_payload,
-                timeout=10
-            )
+            try:
+                # Try with SSL verification first
+                response = requests.post(
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                    headers=headers,
+                    json=test_payload,
+                    timeout=10
+                )
+            except requests.exceptions.SSLError:
+                # Fallback without SSL verification for PyInstaller environments
+                response = requests.post(
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                    headers=headers,
+                    json=test_payload,
+                    timeout=10,
+                    verify=False
+                )
 
             if response.status_code == 200:
                 return {"success": True, "message": "API connection successful"}

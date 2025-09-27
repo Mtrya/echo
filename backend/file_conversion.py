@@ -346,7 +346,7 @@ if __name__ == "__main__":
         converter = FileConverter()
 
         # Test with a single text file
-        test_file_path = "backend/test_files/test_sample.png"
+        test_file_path = "backend/test_files/2018.docx"
 
         # Read and encode the test file
         with open(test_file_path, 'rb') as f:
