@@ -207,9 +207,11 @@ class OmniClient:
         # Check cache first
         cache_path = self._get_tts_cache_path(request.text, request.voice)
         if cache_path.exists():
+            # Return web-accessible path relative to /audio_cache mount point
+            web_path = f"/audio_cache/tts/{cache_path.name}"
             return TTSResult(
                 text=request.text,
-                audio_file_path=str(cache_path)
+                audio_file_path=web_path
             )
 
         # Prepare TTS prompt
@@ -229,9 +231,11 @@ class OmniClient:
             audio_np = np.frombuffer(mp3_bytes, dtype=np.int16)
             sf.write(cache_path, audio_np, samplerate=24000)
 
+            # Return web-accessible path relative to /audio_cache mount point
+            web_path = f"/audio_cache/tts/{cache_path.name}"
             return TTSResult(
                 text=request.text,
-                audio_file_path=str(cache_path)
+                audio_file_path=web_path
             )
         else:
             raise Exception("No audio response received from TTS request")
