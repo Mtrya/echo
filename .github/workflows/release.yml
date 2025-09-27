@@ -102,7 +102,7 @@ jobs:
 
     - name: Clean up existing release
       run: |
-        gh release delete v1.0.0 --yes || echo "No existing release to delete"
+        gh release delete ${{ github.ref_name }} --yes || echo "No existing release to delete"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -115,7 +115,7 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
-        tag_name: v1.0.0
-        name: Echo v1.0.0
+        tag_name: ${{ github.ref_name }}
+        name: Echo ${{ github.ref_name }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
