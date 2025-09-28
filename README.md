@@ -38,6 +38,8 @@
 ![设置页面](assets/input_api_key.png)
 *图2：设置页面，需要输入DASHSCOPE API密钥*
 
+> 💡 **提示**：如果没有DASHSCOPE API密钥，请访问 [阿里云Dashscope控制台](https://dashscope.aliyun.com/) 获取。新用户有免费额度。
+
 #### 步骤2：配置API密钥
 
 ![测试连接](assets/connection_successful.png)
@@ -63,8 +65,6 @@
 
 ![所有功能](assets/full_access.png)
 *图4：配置完毕返回到主页，所有功能已解锁*
-
-> 💡 **提示**：如果没有DASHSCOPE API密钥，请访问 [阿里云Dashscope控制台](https://dashscope.aliyun.com/) 获取。新用户有免费额度。
 
 ### 📝 完整考试流程
 
