@@ -10,7 +10,7 @@ Simple, straightforward exam simulation platform for 10-year-old Chinese student
 - **Subjects**: English + Math (mixed exams)
 - **Timeline**: Full implementation in 2 weeks
 - **Scope**: Simple, focused, no unnecessary complexity
-- **Deployment**: Local development → Windows .exe via PyInstaller
+- **Deployment**: Local development → Windows echo.exe via PyInstaller
 - **Motivation**: A friend of the user asks me to develop this for his kid.
 
 ## Tech Stack
@@ -206,6 +206,8 @@ echo/
 │   ├── main.py              # FastAPI app with all endpoints
 │   ├── models.py            # Pydantic models for data validation
 │   ├── omni_client.py       # Unified LLM client for all AI processing
+│   ├── config.py            # Configuration management with AppData support
+│   ├── paths.py             # Centralized path management for cross-platform
 │   ├── file_conversion.py   # File processing and exam creation
 │   └── exam_logic.py        # Session management and state tracking
 ├── frontend/                # ✅ COMPLETED
@@ -222,6 +224,7 @@ echo/
 │       │   ├── QuickResponse.vue  # Quick response questions
 │       │   ├── ReadAloud.vue      # Read aloud practice
 │       │   ├── Results.vue        # Exam results display
+│       │   ├── Settings.vue       # Settings management
 │       │   └── Translation.vue    # Translation questions
 │       ├── App.vue          # Main application component
 │       ├── main.js          # Application entry point
@@ -234,6 +237,8 @@ echo/
 ├── audio_cache/             # Generated audio files cache
 │   ├── student_answers/     # Student audio recordings by session
 │   └── tts/                 # Text-to-speech cache
+├── build.py                 # PyInstaller build script
+├── launch.py                # Application launcher
 ├── .env                     # Environment variables
 ├── .gitignore               # Git ignore rules
 ├── .python-version          # Python version specification
@@ -250,3 +255,11 @@ echo/
 - Don't ever return mock data. If there's an error, let it expose naturally instead of pretending that everything is working all right.
 - Always check API_DOCUMENTATION.md when implementing frontend services.
 - try-except blocks are **FORBIDDEN**.
+
+## todos
+
+- complete README.md
+- update frontend/API_DOCUMENTATION.md
+- enhance file-conversion prompt with examples
+- user-friendly guide for fresh start
+- wording

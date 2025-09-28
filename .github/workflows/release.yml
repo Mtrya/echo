@@ -70,25 +70,25 @@ jobs:
     - name: Create portable package (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        mkdir -p dist/Echo-Portable
-        cp dist/Echo dist/Echo-Portable/
-        chmod +x dist/Echo dist/Echo-Portable/Echo
-        cp README.md dist/Echo-Portable/ 2>/dev/null || true
+        mkdir -p dist/echo-portable
+        cp dist/echo dist/echo-portable/
+        chmod +x dist/echo dist/echo-portable/echo
+        cp README.md dist/echo-portable/ 2>/dev/null || true
 
     - name: Create portable package (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        mkdir -p dist/Echo-Portable
-        copy dist\Echo.exe dist\Echo-Portable\
-        copy README.md dist\Echo-Portable\ 2>nul || echo README.md not found
+        mkdir -p dist/echo-portable
+        copy dist\echo.exe dist\echo-portable\
+        copy README.md dist\echo-portable\ 2>nul || echo README.md not found
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: build-${{ matrix.os }}
         path: |
-          dist/Echo*
-          dist/Echo-Portable/**
+          dist/echo*
+          dist/echo-portable/**
         retention-days: 1
 
   release:

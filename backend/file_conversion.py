@@ -176,8 +176,8 @@ class FileConverter:
                         "tts": "For read aloud questions, you should read displayed English sentences aloud"
                     },
                     "multiple_choice": {
-                        "text": "For multiple choice questions, read the question carefully and choose the best answer from A, B, C or D.",
-                        "tts": "For multiple choice questions, read the question carefully and choose the best answer from A, B, C or D"
+                        "text": "For multiple choice questions, read the question carefully and choose the best answer from A, B, C and D.",
+                        "tts": "For multiple choice questions, read the question carefully and choose the best answer from A, B, C and D"
                     },
                     "quick_response": {
                         "text": "For quick response questions, you will hear a question and respond by speaking. Listen carefully and answer clearly.",

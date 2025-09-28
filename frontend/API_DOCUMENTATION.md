@@ -1,18 +1,10 @@
 # Echo Exam Platform - API Documentation
 
-## Overview
-
-The Echo Exam Platform provides a RESTful API for managing and taking English+Math exams for Chinese students. The API uses JSON for requests and responses.
-
 ## Base URL
 
-```url
+```base url
 http://localhost:8000
 ```
-
-## Authentication
-
-Currently no authentication is required (for development).
 
 ## API Endpoints
 
@@ -20,7 +12,7 @@ Currently no authentication is required (for development).
 
 **GET** `/`
 
-Get API information and available endpoints.
+API information.
 
 **Response:**
 
@@ -41,7 +33,7 @@ Get API information and available endpoints.
 
 **GET** `/health`
 
-Check if the API is running properly.
+Check API status.
 
 **Response:**
 
@@ -51,25 +43,54 @@ Check if the API is running properly.
 }
 ```
 
-### 3. List Available Exams
+### 3. API Key Status
 
-**GET** `/exams/list`
+**GET** `/api-key-status`
 
-List all available exam YAML files.
+Check API key configuration.
 
 **Response:**
 
 ```json
 {
-  "exams": ["sample_test.yaml", "comprehensive_test.yaml", "exam-2099.yaml"]
+  "has_api_key": true,
+  "message": "API key configured"
 }
 ```
 
-### 4. Start Exam Session
+### 4. List Available Exams
+
+**GET** `/exams/list?include_completed=true`
+
+List available exam files.
+
+**Response:**
+
+```json
+{
+  "exams": ["exam-2098.yaml", "exam-2099.yaml", "test.yaml"]
+}
+```
+
+### 5. Get Completed Exams
+
+**GET** `/exams/completed`
+
+Get completed exam files.
+
+**Response:**
+
+```json
+{
+  "completed_exams": ["exam-2098.yaml"]
+}
+```
+
+### 6. Start Exam Session
 
 **POST** `/session/start`
 
-Start a new exam session. This loads the exam file and prepares all audio files.
+Start new exam session.
 
 **Request:**
 
@@ -90,11 +111,11 @@ Start a new exam session. This loads the exam file and prepares all audio files.
 }
 ```
 
-### 5. Get Current Question
+### 7. Get Current Question
 
 **GET** `/session/{session_id}/question`
 
-Get the current question for the session. Includes audio file path if available.
+Get current question with audio.
 
 **Response:**
 
@@ -112,29 +133,27 @@ Get the current question for the session. Includes audio file path if available.
   "question_index": 0,
   "is_last": false,
   "instruction": {
-    "text": "This is a multiple choice section. Please listen to each question and select the correct answer.",
-    "tts": "This is a multiple choice section. Please listen to each question and select the correct answer."
+    "text": "This is a multiple choice section.",
+    "tts": "This is a multiple choice section."
   },
   "instruction_audio_file_path": "tts/f4496987dabd9f56fa5c336c2ab63ff0.mp3"
 }
 ```
 
-### 6. Submit Answer
+### 8. Submit Answer
 
 **POST** `/session/{session_id}/answer`
 
-Submit an answer for the current question. Processing happens asynchronously.
+Submit answer for current question.
 
 **Request:**
 
 ```json
 {
-  "answer_text": "A",  // For text-based answers (optional)
-  "student_answer_audio": "base64-encoded-audio-data"  // For voice answers (optional)
+  "answer_text": "A",
+  "student_answer_audio": "base64-encoded-audio-data"
 }
 ```
-
-**Note:** Audio data should be base64-encoded and sent as a string in the JSON payload. The backend will automatically decode it to bytes for processing. Only one of `answer_text` or `student_answer_audio` should be provided based on question type.
 
 **Response:**
 
@@ -146,11 +165,11 @@ Submit an answer for the current question. Processing happens asynchronously.
 }
 ```
 
-### 7. Get Audio Generation Status
+### 9. Get Audio Generation Status
 
 **GET** `/session/{session_id}/audio-status`
 
-Get the audio generation status for a session.
+Check audio generation progress.
 
 **Response:**
 
@@ -161,15 +180,11 @@ Get the audio generation status for a session.
 }
 ```
 
-**Status Values:**
-
-- `audio_generation`: "generating" | "completed"
-
-### 8. Get Final Results
+### 10. Get Final Results
 
 **GET** `/session/{session_id}/results`
 
-Get the final exam results with progressive processing status.
+Get exam results with progressive processing.
 
 **Response:**
 
@@ -189,60 +204,20 @@ Get the final exam results with progressive processing status.
       "question_type": "multiple_choice",
       "question_text": "What is 2+2?",
       "score": 5.0,
-      "feedback": "Excellent work! You got this math question right!",
-      "explanation": "The question asks what is 2+2. The correct answer is A: 4, which you selected correctly.",
-      "suggested_answer": null,
+      "feedback": "Excellent work!",
+      "explanation": "The correct answer is A: 4.",
       "student_answer": "A",
       "reference_answer": "A"
-    },
-    {
-      "question_index": 1,
-      "question_id": "q2",
-      "question_type": "read_aloud",
-      "question_text": "Read this sentence aloud: The cat is sleeping on the mat.",
-      "score": 4.5,
-      "feedback": "Great pronunciation! You read the sentence very clearly.",
-      "explanation": "You pronounced all words correctly. The sentence was: The cat is sleeping on the mat.",
-      "suggested_answer": null,
-      "student_audio_path": "student_answers/session_id/q2_1234567890.mp3"
-    },
-    {
-      "question_index": 2,
-      "question_id": "q3",
-      "question_type": "quick_response",
-      "question_text": "What color is the sky on a clear day?",
-      "score": 3.0,
-      "feedback": "Good attempt! Your answer was mostly correct.",
-      "explanation": "You said 'blue sky' which is correct. The sky is blue on clear days.",
-      "suggested_answer": "The sky is blue.",
-      "student_audio_path": "student_answers/session_id/q3_1234567890.mp3"
-    },
-    {
-      "question_index": 3,
-      "question_id": "q4",
-      "question_type": "translation",
-      "question_text": "Translate to English: 我喜欢学习数学",
-      "score": 4.0,
-      "feedback": "Very good translation! You captured the meaning well.",
-      "explanation": "You translated '我喜欢学习数学' as 'I like to study math' which is accurate.",
-      "suggested_answer": "I like to study math.",
-      "student_audio_path": "student_answers/session_id/q4_1234567890.mp3"
     }
   ]
 }
 ```
 
-**Progressive Processing:**
-
-- `all_processed`: `false` while questions are still being processed
-- `processed_count`: Number of questions that have been graded
-- `question_results`: Only includes processed questions
-
-### 9. File Conversion
+### 11. File Conversion
 
 **POST** `/convert/file`
 
-Convert file to exam format using qwen3-vl-plus.
+Convert files to exam format.
 
 **Request:**
 
@@ -258,26 +233,18 @@ Convert file to exam format using qwen3-vl-plus.
 ```json
 {
   "success": true,
-  "message": "Successfully extracted 15 questions from provided files",
-  "extracted_questions": [
-    {
-      "id": "q1",
-      "type": "multiple_choice",
-      "text": "What is 2+2?",
-      "options": ["A: 4", "B: 5", "C: 6", "D: 7"],
-      "reference_answer": "A"
-    }
-  ],
+  "message": "Successfully extracted 15 questions",
+  "extracted_questions": [...],
   "yaml_output": "exam:\n  title: 'Generated Exam'\n  questions: [...]",
   "output_filename": "generated_exam_20241225_143022.yaml"
 }
 ```
 
-### 10. Rename Exam File
+### 12. Rename Exam File
 
 **POST** `/rename-exam`
 
-Rename an exam file in the exams directory.
+Rename exam file.
 
 **Request:**
 
@@ -293,62 +260,79 @@ Rename an exam file in the exams directory.
 ```json
 {
   "success": true,
-  "message": "Exam file renamed successfully from 'exam-2099.yaml' to 'new-exam-name.yaml'"
+  "message": "Exam file renamed successfully"
 }
 ```
 
-### 11. Settings Management
+### 13. Delete Exam File
 
-**GET** `/settings`
+**POST** `/delete-exam`
 
-Get current configuration settings.
+Delete exam file.
+
+**Request:**
+
+```json
+{
+  "exam_filename": "exam-2099.yaml"
+}
+```
 
 **Response:**
 
 ```json
 {
-  "api": {
-    "dashscope_key": "your-api-key-here"
+  "success": true,
+  "message": "Exam file deleted successfully"
+}
+```
+
+### 14. Settings Management
+
+**GET** `/settings`
+
+Get configuration.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "config": {
+    "api": {"dashscope_key": "your-api-key"},
+    "models": {
+      "omni_model": "qwen3-omni-flash",
+      "vision_model": "qwen3-vl-plus"
+    },
+    "time_limits": {
+      "multiple_choice": 30,
+      "read_aloud": 15,
+      "quick_response": 15,
+      "translation": 30
+    },
+    "ui": {"theme": "green"}
   },
-  "models": {
-    "omni_model": "qwen3-omni-flash",
-    "vision_model": "qwen3-vl-plus"
-  },
-  "time_limits": {
-    "multiple_choice": 30,
-    "read_aloud": 15,
-    "quick_response": 15,
-    "translation": 30
-  },
-  "ui": {
-    "theme": "green"
+  "options": {
+    "omni_models": ["qwen3-omni-flash", "qwen-omni-turbo"],
+    "vision_models": ["qwen3-vl-plus", "qwen3-vl-235b-a22b-thinking"],
+    "voice_options": ["Cherry", "Ethan", "Aria"]
   }
 }
 ```
 
 **POST** `/settings`
 
-Update configuration settings.
+Update configuration.
 
 **Request:**
 
 ```json
 {
-  "api": {
-    "dashscope_key": "new-api-key"
-  },
-  "models": {
-    "omni_model": "qwen3-omni-flash",
-    "vision_model": "qwen3-vl-plus"
-  },
-  "time_limits": {
-    "multiple_choice": 30,
-    "read_aloud": 15,
-    "quick_response": 15,
-    "translation": 30
-  },
-  "ui": {
-    "theme": "blue"
+  "config": {
+    "api": {"dashscope_key": "new-api-key"},
+    "models": {"omni_model": "qwen3-omni-flash"},
+    "time_limits": {"multiple_choice": 30},
+    "ui": {"theme": "blue"}
   }
 }
 ```
@@ -362,9 +346,11 @@ Update configuration settings.
 }
 ```
 
+### 15. Test API Connection
+
 **POST** `/test-api`
 
-Test API connection with provided credentials.
+Test API credentials.
 
 **Request:**
 
@@ -387,258 +373,62 @@ Test API connection with provided credentials.
 }
 ```
 
+### 16. Get Available Voices
+
 **GET** `/voices/{omni_model}`
 
-Get available voices for a specific omni model.
+Get voices for model.
 
 **Response:**
 
 ```json
 {
-  "model": "qwen3-omni-flash",
-  "available_voices": ["Cherry", "Ethan", "Aria", "Oliver", "Sophia", "Liam"]
+  "success": true,
+  "voices": ["Cherry", "Ethan", "Aria", "Oliver", "Sophia", "Liam"]
 }
 ```
 
 ## Question Types
 
-### 1. Multiple Choice (`multiple_choice`)
+### Multiple Choice (`multiple_choice`)
 
-- **Default Time Limit**: 30 seconds (configurable)
-- **Input**: Mouse click (A, B, C, D)
-- **Answer Format**: Single letter ("A", "B", "C", "D")
-- **Features**: Automatic scoring, LLM provides explanations
-- **Response Data**: Includes `student_answer` and `reference_answer`
+- Time: 30s (configurable)
+- Input: Mouse click (A, B, C, D)
+- Response: `student_answer`, `reference_answer`
 
-### 2. Read Aloud (`read_aloud`)
+### Read Aloud (`read_aloud`)
 
-- **Default Time Limit**: 15 seconds (configurable)
-- **Input**: Voice recording
-- **Answer Format**: Audio data (transcribed automatically)
-- **Features**: Text matching accuracy, pronunciation feedback
-- **Response Data**: Includes `student_audio_path` for playback
+- Time: 15s (configurable)
+- Input: Voice recording
+- Response: `student_audio_path`
 
-### 3. Quick Response (`quick_response`)
+### Quick Response (`quick_response`)
 
-- **Default Time Limit**: 15 seconds (configurable)
-- **Input**: Voice recording
-- **Answer Format**: Audio data (transcribed automatically)
-- **Features**: LLM grades relevance and grammar
-- **Response Data**: Includes `student_audio_path` for playback
+- Time: 15s (configurable)
+- Input: Voice recording
+- Response: `student_audio_path`
 
-### 4. Translation (`translation`)
+### Translation (`translation`)
 
-- **Default Time Limit**: 30 seconds (configurable)
-- **Input**: Voice recording
-- **Answer Format**: Audio data (transcribed automatically)
-- **Features**: LLM grades translation accuracy
-- **Response Data**: Includes `student_audio_path` for playback
-
-## Audio File Handling
-
-### TTS (Text-to-Speech) Audio
-
-- Generated at session start for all questions with `tts` field
-- Cached in `audio_cache/tts/` directory
-- Served via `/audio_cache/` endpoint
-- Format: MP3
-- File paths are relative to `audio_cache/`
-
-### Student Audio Recordings
-
-- Saved during answer submission in `audio_cache/student_answers/`
-- Organized by session ID and question ID with timestamp
-- Format: MP3 (converted from WebM)
-- Served via `/audio_cache/` endpoint
-- File paths: `student_answers/{session_id}/{question_id}_{timestamp}.mp3`
+- Time: 30s (configurable)
+- Input: Voice recording
+- Response: `student_audio_path`
 
 ## Static Files
 
 ### Audio Cache
 
-- **GET** `/audio_cache/{file_path}`
-- Serves cached TTS audio and student recordings
-- Example: `/audio_cache/tts/question_1.mp3`
-- Example: `/audio_cache/student_answers/session_id/q1_1234567890.mp3`
+**GET** `/audio_cache/{file_path}`
 
-## Error Handling
+Serve TTS audio and student recordings.
 
-### Common Error Responses
+Examples:
 
-#### 400 Bad Request
+- `/audio_cache/tts/question_1.mp3`
+- `/audio_cache/student_answers/session_id/q1_1234567890.mp3`
 
-```json
-{
-  "detail": "Session not found: session_id"
-}
-```
-
-#### 404 Not Found
-
-```json
-{
-  "detail": "No more questions available"
-}
-```
-
-#### 500 Internal Server Error
-
-```json
-{
-  "error": "Internal Server Error",
-  "message": "An unexpected error occurred",
-  "details": "Error details"
-}
-```
-
-## Frontend Implementation Guide
-
-### 1. Exam Flow
-
-1. **Start**: Call `/session/start` with exam file path
-2. **Questions**: Loop through questions using `/session/{id}/question`
-3. **Answers**: Submit answers using `/session/{id}/answer`
-4. **Results**: Get final results using `/session/{id}/results` (supports polling)
-
-### 2. Audio Integration
-
-- **TTS Audio**: Use provided `audio_file_path` to play question audio
-- **Voice Recording**: Record audio and send as base64 in `student_answer_audio` field
-- **Audio Playback**: Use `/audio_cache/{path}` for student answer playback
-- **Audio Formats**: TTS = MP3, Student recordings = MP3
-
-### 3. Timer Implementation
-
-- Use `time_limit` from question response data (not from question object)
-- Time limits are configurable via settings API
-- Start timer when question is displayed
-- Auto-submit when timer expires
-
-### 4. State Management
-
-- Store `session_id` for all subsequent calls
-- Track `question_index` to know current position
-- Use `is_last` to determine when to show results
-- Poll `/results` endpoint for progressive updates
-
-### 5. Results Display
-
-- Show "Processing X out of N questions" while `all_processed` is false
-- Display questions progressively as they're processed
-- Add audio playback buttons for questions with `student_audio_path`
-- Show student vs reference answers for multiple choice
-- Include AI disclaimer for generated feedback
-
-### 6. Error Handling
-
-- Handle 400/404 errors gracefully
-- Show user-friendly error messages
-- Implement retry logic for network issues
-
-## Example Implementation
-
-```javascript
-// Start exam
-async function startExam(examFile) {
-  const response = await fetch('/session/start', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ exam_file_path: examFile })
-  });
-  const session = await response.json();
-  return session.session_id;
-}
-
-// Get question
-async function getQuestion(sessionId) {
-  const response = await fetch(`/session/${sessionId}/question`);
-  const data = await response.json();
-  return data;
-}
-
-// Submit answer
-async function submitAnswer(sessionId, answer) {
-  const response = await fetch(`/session/${sessionId}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(answer)
-  });
-  return await response.json();
-}
-
-// Get results with polling
-async function getResults(sessionId) {
-  const response = await fetch(`/session/${sessionId}/results`);
-  return await response.json();
-}
-
-// Play student audio
-function playStudentAudio(audioPath) {
-  const audio = new Audio(`/audio_cache/${audioPath}`);
-  audio.play();
-}
-```
-
-## Configuration
-
-The platform uses a YAML configuration file (`config.yaml`) for settings management:
-
-- **API Keys**: Configure via settings UI or config file
-- **Model Selection**: Choose from available omni and vision models
-- **Time Limits**: Configure per question type
-- **UI Themes**: Green, Blue, Purple themes available
-- **Voice Options**: Select from model-compatible voices
-
-### Available Models
-
-**Omni Models (Audio + Text):**
-- `qwen3-omni-flash` (default)
-- `qwen-omni-turbo`
-- `qwen2.5-omni-7b`
-
-**Vision Models (Image Processing):**
-- `qwen3-vl-plus` (default)
-- `qwen3-vl-235b-a22b-thinking`
-- `qwen2.5-vl-72b-instruct`
-- And 10 other vision models
-
-### Supported File Formats
-
-- **Text**: `.txt`, `.md`, `.docx`
-- **Images**: `.jpg`, `.jpeg`, `.png`
-- **Documents**: `.pdf` (converted to images)
-
-## Testing Endpoints
-
-### Interactive Documentation
+## Interactive Documentation
 
 **GET** `/docs`
 
-Interactive Swagger UI documentation for testing API endpoints.
-
-### Health Check
-
-**GET** `/health`
-
-```json
-{
-  "status": "healthy"
-}
-```
-
-### Root Endpoint
-
-**GET** `/`
-
-```json
-{
-  "message": "Echo - LLM-Powered Exam Platform API",
-  "version": "1.0.0",
-  "docs": "/docs",
-  "endpoints": {
-    "exams": "/exams/list",
-    "session": "/session/start",
-    "health": "/health"
-  }
-}
-```
+Swagger UI for testing API endpoints.

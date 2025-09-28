@@ -121,7 +121,7 @@ def build_executable():
         return False
 
     # Check if executable was created
-    executable_path = dist_dir / "Echo.exe" if os.name == 'nt' else dist_dir / "Echo"
+    executable_path = dist_dir / "echo.exe" if os.name == 'nt' else dist_dir / "echo"
     if not executable_path.exists():
         print("❌ Executable not created")
         return False
@@ -134,7 +134,7 @@ def create_portable_package():
     print("\nCreating portable package...")
 
     dist_dir = Path("dist")
-    portable_dir = dist_dir / "Echo-Portable"
+    portable_dir = dist_dir / "echo-portable"
 
     # Clean previous portable package
     if portable_dir.exists():
@@ -143,7 +143,7 @@ def create_portable_package():
     portable_dir.mkdir(parents=True)
 
     # Copy executable
-    executable_name = "Echo.exe" if os.name == 'nt' else "Echo"
+    executable_name = "echo.exe" if os.name == 'nt' else "echo"
     executable_path = dist_dir / executable_name
     shutil.copy2(executable_path, portable_dir / executable_name)
 
@@ -155,11 +155,11 @@ def create_portable_package():
 
     # Create a simple batch file for Windows
     if os.name == 'nt':
-        batch_file = portable_dir / "Start Echo.bat"
+        batch_file = portable_dir / "Start echo.bat"
         with open(batch_file, 'w') as f:
             f.write('@echo off\n')
-            f.write('echo Starting Echo...\n')
-            f.write('start "" "%~dp0Echo.exe"\n')
+            f.write('echo Starting echo...\n')
+            f.write('start "" "%~dp0echo.exe"\n')
 
     print(f"✅ Portable package created: {portable_dir}")
     return True
@@ -193,8 +193,8 @@ def main():
     print("🎉 Build completed successfully!")
     print("="*50)
     print("Output files:")
-    print("  • Executable: dist/Echo.exe")
-    print("  • Portable package: dist/Echo-Portable/")
+    print("  • Executable: dist/echo.exe" if os.name == 'nt' else "  • Executable: dist/echo")
+    print("  • Portable package: dist/echo-Portable/")
     print("\nTo test the application:")
     print("  1. Run the executable directly")
     print("  2. Or extract the portable package and run from there")
