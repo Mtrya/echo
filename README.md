@@ -20,7 +20,7 @@
 ### 安装指南
 
 1. 确保您的操作系统为Windows 10+或Linux,且有互联网连接
-2. 从 [GitHub Releases](https://github.com/your-username/echo/releases) 下载最新版本的 `echo.exe`（Windows）或 `echo`（Linux）
+2. 从 [GitHub Releases](https://github.com/Mtrya/echo/releases) 下载最新版本的 `echo.exe`（Windows）或 `echo`（Linux）
 3. 双击运行程序（Windows）或`cd`到文件所在文件夹运行`./echo`（Linux）
 4. 程序会自动在系统目录创建必要的配置文件夹
 
@@ -362,7 +362,7 @@ echo/
 
 如有问题或建议，请通过以下方式联系：
 
-- GitHub Issues：[提交问题](https://github.com/your-username/echo/issues)
+- GitHub Issues：[提交问题](https://github.com/Mtrya/echo/issues)
 - 邮箱：<erchanmion20@outlook.com>
 
 ## 🙏 致谢
