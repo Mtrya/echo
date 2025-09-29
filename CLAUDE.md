@@ -98,6 +98,5 @@ echo/
 ## todos
 
 - enhance file-conversion prompt with examples
-- user-friendly guide for fresh start
 - convert to Chinese interface
 - update README with new images of interface with highlights
