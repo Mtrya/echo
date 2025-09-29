@@ -341,7 +341,8 @@ class OmniClient:
             return GradingResult(
                 score=float(grading_data["score"]),
                 feedback=grading_data["feedback"],
-                explanation=grading_data["explanation"]
+                explanation=grading_data["explanation"],
+                student_answer=student_answer
             )
         except:
             return GradingResult(

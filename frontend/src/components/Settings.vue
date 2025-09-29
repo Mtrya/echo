@@ -39,6 +39,18 @@
           <div v-if="apiTestResult" :class="['api-result', apiTestResult.success ? 'success' : 'error']">
             {{ apiTestResult.message || apiTestResult.error }}
           </div>
+
+          <div class="api-help-link">
+            <a
+              href="https://bailian.console.aliyun.com/?tab=model#/api-key"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="get-key-link"
+            >
+              🔑 Get Dashscope API Key
+            </a>
+            <span class="help-text">Don't have an API key? Get one from Alibaba Cloud Dashscope</span>
+          </div>
         </div>
       </div>
 
@@ -385,6 +397,10 @@ export default {
   background: #f8f9fa;
 }
 
+.tab-content {
+  padding: 20px 0 0 0;
+}
+
 .setting-group {
   margin-bottom: 20px;
 }
@@ -558,5 +574,36 @@ export default {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.api-help-link {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.get-key-link {
+  display: inline-block;
+  background: #3498db;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: 500;
+  margin-bottom: 5px;
+  transition: background 0.3s;
+}
+
+.get-key-link:hover {
+  background: #2980b9;
+  color: white;
+}
+
+.help-text {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
 }
 </style>
