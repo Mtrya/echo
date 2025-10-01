@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  release:
+    types: [created]
 
 permissions:
   contents: write
@@ -100,13 +102,14 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
 
-    - name: Clean up existing release
+    - name: Clean up existing release (only if triggered by tag)
+      if: github.event_name == 'push'
       run: |
         gh release delete ${{ github.ref_name }} --yes || echo "No existing release to delete"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Create Release
+    - name: Create/Update Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
@@ -114,8 +117,10 @@ jobs:
           build-windows-latest/*
         draft: false
         prerelease: false
-        generate_release_notes: true
+        generate_release_notes: ${{ github.event_name == 'push' }}  # Only generate notes if triggered by tag push
         tag_name: ${{ github.ref_name }}
         name: Echo ${{ github.ref_name }}
+        # If release was created via gh release, preserve its notes and update with binaries
+        append_body: ${{ github.event_name == 'release' }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
