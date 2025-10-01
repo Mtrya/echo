@@ -97,5 +97,4 @@ echo/
 
 ## todos
 
-- convert to Chinese interface
 - update README with new images of interface with highlights

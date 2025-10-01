@@ -12,7 +12,8 @@
           <div class="score-label">{{ translate('results.outOf') }} {{ totalQuestions || '?' }}</div>
         </div>
         <div class="processing-info" v-if="!allProcessed">
-          <p>{{ translate('results.processing', [formatCount(processedCount), totalQuestionCount]) }}</p>
+          <p v-if="!timeoutOccurred">{{ translate('results.processing', [formatCount(processedCount), totalQuestionCount]) }}</p>
+          <p v-else class="timeout-warning">{{ translate('results.timeoutWarning', [Math.floor(POLLING_TIMEOUT / 1000)]) }}</p>
         </div>
       </div>
 
@@ -34,6 +35,11 @@
           <div class="results-summary">
             <p><strong>{{ translate('results.finalScore') }}:</strong> {{ formatScore(score) }}/{{ totalQuestions }} ({{ percentage }}%)</p>
             <p><strong>{{ translate('results.timeTaken') }}:</strong> {{ formatDuration(resultsData.duration_seconds) }}</p>
+          </div>
+
+          <!-- Timeout Warning -->
+          <div v-if="timeoutOccurred" class="timeout-warning-box">
+            <p>⚠️ <strong>{{ translate('results.timeoutOccurred') }}</strong> {{ translate('results.timeoutOccurredMessage') }}</p>
           </div>
 
           <!-- AI Disclaimer -->
@@ -114,9 +120,14 @@ export default {
     const processedCount = ref(0)
     const isCheckingStatus = ref(false)
     const isPlayingAudio = ref(null) // Track which question's audio is playing
+    const timeoutOccurred = ref(false) // Track if timeout has occurred
+    const pollingStartTime = ref(null) // Track when polling started
 
     // Audio player element
     const audioPlayer = ref(null)
+
+    // Timeout configuration (60 seconds)
+    const POLLING_TIMEOUT = 60000
 
     // Start checking status when component mounts
     onMounted(async () => {
@@ -133,15 +144,35 @@ export default {
       }
     })
 
-    // Load results from backend (polling until all processed)
+    // Load results from backend (polling until all processed or timeout)
     const loadResults = async () => {
       if (isCheckingStatus.value) return
+
+      // Initialize polling start time if not set
+      if (!pollingStartTime.value) {
+        pollingStartTime.value = Date.now()
+      }
+
+      // Check for timeout
+      const elapsedTime = Date.now() - pollingStartTime.value
+      if (elapsedTime > POLLING_TIMEOUT && !timeoutOccurred.value) {
+        console.log('Polling timeout reached, forcing results display')
+        timeoutOccurred.value = true
+        await handleTimeout()
+        return
+      }
 
       try {
         isCheckingStatus.value = true
         console.log('Loading results for session:', props.sessionId)
         const response = await fetch(`/session/${props.sessionId}/results`)
         console.log('Response status:', response.status)
+
+        // Check if timeout occurred while waiting for response
+        if (timeoutOccurred.value) {
+          console.log('Timeout occurred during request, stopping polling')
+          return
+        }
 
         if (response.ok) {
           const data = await response.json()
@@ -156,25 +187,79 @@ export default {
           // Store total question count separately for display
           totalQuestionCount.value = data.total_questions
 
-          // If not all processed, continue polling
-          if (!data.all_processed) {
+          // If not all processed and no timeout, continue polling
+          if (!data.all_processed && !timeoutOccurred.value) {
             setTimeout(loadResults, 2000)
           }
         } else {
           console.error('Failed to load results:', response.status)
-          // Continue polling on error
-          setTimeout(loadResults, 2000)
+          // Continue polling on error if no timeout
+          if (!timeoutOccurred.value) {
+            setTimeout(loadResults, 2000)
+          }
         }
       } catch (error) {
         console.error('Error loading results:', error)
-        // Continue polling on error
-        setTimeout(loadResults, 2000)
+        // Continue polling on error if no timeout
+        if (!timeoutOccurred.value) {
+          setTimeout(loadResults, 2000)
+        }
       } finally {
         isCheckingStatus.value = false
       }
     }
 
-  
+    // Handle timeout by generating failed results for unprocessed questions
+    const handleTimeout = async () => {
+      if (!resultsData.value) return
+
+      console.log('Handling timeout, generating failed question results')
+
+      // Create a copy of the results data
+      const modifiedResults = { ...resultsData.value }
+
+      // Get indices of questions that haven't been processed
+      const processedIndices = new Set(modifiedResults.question_results.map(q => q.question_index))
+      const totalQuestions = modifiedResults.total_questions
+
+      // Generate failed results for unprocessed questions
+      for (let i = 0; i < totalQuestions; i++) {
+        if (!processedIndices.has(i)) {
+          const failedResult = generateFailedQuestionResult(i)
+          modifiedResults.question_results.push(failedResult)
+        }
+      }
+
+      // Sort questions by index
+      modifiedResults.question_results.sort((a, b) => a.question_index - b.question_index)
+
+      // Update the results data
+      modifiedResults.all_processed = true
+      modifiedResults.processed_count = totalQuestions
+      resultsData.value = modifiedResults
+      allProcessed.value = true
+    }
+
+    // Generate a failed question result
+    const generateFailedQuestionResult = (questionIndex) => {
+      // Try to get question info from the original exam data
+      // Since we don't have the full exam data, we'll create a generic failed result
+      return {
+        question_index: questionIndex,
+        question_id: `question_${questionIndex}`,
+        question_type: "unknown",
+        question_text: translate('results.questionProcessingFailed'),
+        score: 0,
+        feedback: translate('results.processingTimeout'),
+        explanation: translate('results.timeoutExplanation'),
+        suggested_answer: null,
+        student_answer: null,
+        reference_answer: null,
+        student_audio_path: null
+      }
+    }
+
+
     // Start a new exam
     const startNewExam = () => {
       emit('new-exam')
@@ -261,6 +346,7 @@ export default {
       allProcessed,
       processedCount,
       isPlayingAudio,
+      timeoutOccurred,
       startNewExam,
       goHome,
       formatDuration,
@@ -515,6 +601,30 @@ export default {
 
 .ai-disclaimer strong {
   color: #78350f;
+}
+
+.timeout-warning {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.timeout-warning-box {
+  background: #fef2f2;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+.timeout-warning-box p {
+  margin: 0;
+  color: #991b1b;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.timeout-warning-box strong {
+  color: #7f1d1d;
 }
 
 .btn {

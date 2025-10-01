@@ -213,7 +213,13 @@ export const translations = {
       finalizingResults: "Finalizing your exam results...",
       startNewExam: "Start New Exam",
       backToHome: "Back to Home",
-      notAnswered: "Not answered"
+      notAnswered: "Not answered",
+      timeoutWarning: "Taking longer than expected... Showing results after {0} seconds",
+      timeoutOccurred: "Timeout Occurred",
+      timeoutOccurredMessage: "Some questions took too long to process and have been marked as failed. This could be due to network issues or server overload.",
+      questionProcessingFailed: "Question processing failed",
+      processingTimeout: "Processing timeout - answer not received",
+      timeoutExplanation: "This question could not be processed due to a timeout. Please check your internet connection and try again."
     },
 
     // Common
@@ -454,7 +460,13 @@ export const translations = {
       finalizingResults: "正在完成您的考试结果...",
       startNewExam: "开始新考试",
       backToHome: "返回首页",
-      notAnswered: "未作答"
+      notAnswered: "未作答",
+      timeoutWarning: "处理时间超过预期...将在{0}秒后显示结果",
+      timeoutOccurred: "处理超时",
+      timeoutOccurredMessage: "部分题目处理时间过长，已被标记为失败。这可能是由于网络问题或服务器过载导致的。",
+      questionProcessingFailed: "题目处理失败",
+      processingTimeout: "处理超时 - 未收到答案",
+      timeoutExplanation: "由于处理超时，无法处理此题。请检查网络连接后重试。"
     },
 
     // Common
