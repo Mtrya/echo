@@ -33,3 +33,168 @@ Respond in JSON format:
 - For multiple_choice: Always provide exactly 4 options (A, B, C, D)
 - If no valid questions found, set success: false and explain why
 - If geometric/visual content detected, mention it in the message
+
+## Examples:
+
+1. **Example One**
+Input:
+```docx
+Set 1
+Read:
+1. She's a graceful old lady with a heart of gold.
+
+Quick response:
+1. Please give me that red fluffy toy. (Here you are)
+
+Set 2
+Read:
+1. Junuary
+
+Quick response:
+1. Thanks for your timely help. (You're welcome.)
+```
+
+Output:
+{{
+    "success": true,
+    "message": "Extracted 4 questions from 2 sets: 2 read aloud and 2 quick response questions",
+    "extracted_questions": [
+        {{
+            "id": "ra1",
+            "type": "read_aloud",
+            "text": "January" // easy questions first
+        }},
+        {{
+            "id": "ra2",
+            "type": "read_aloud",
+            "text": "She's a graceful old lady with a heart of gold"
+        }},
+        {{
+            "id": "qr1",
+            "type": "quick_response",
+            "text": "Please give me that red fluffy toy." // read_aloud -> multiple_choice (not present here, skip) -> quick_response -> translation (not present, skip)
+        }},
+        {{
+            "id": "qr2",
+            "type": "quick_response",
+            "text": "Thanks for your timely help." // even though the reference answer is provided here, you don't need to include it
+        }}
+    ]
+}}
+
+
+2. **Example Two**
+Input:
+
+```txt
+跟读 (3+3+2)
+
+satellite volleyball tomato supermarket
+Agricultural Bank of China
+
+快速应答
+
+When was the Spring Festival/the Lantern Festival this year?
+
+中译英
+
+Xiaoming lives in Beijing, a student of Grade Five from Renmin Primary School.
+
+My telephone number is 
+
+Every morning I brush my teeth, wash my face and have my breakfast
+
+My Favorite City
+My Best Friend
+```
+
+Output:
+{{
+    "success": true,
+    "message": "Extracted 7 questions: 5 read aloud words/phrases, 2 quick response questions, and 2 translation questions. Skipped incomplete sentences and age-inappropriate content",
+    "extracted_questions": [
+        {{
+            "id": "ra1",
+            "type": "read_aloud",
+            "text": "satellite" // each read_aloud question should be a coherent word, phrase or sentence, so you need to separate "satellite", "volleyball", "tomato" and "supermarket" even though they're in the a line
+        }},
+        ...
+        {{
+            "id": "ra5",
+            "type": "read_aloud",
+            "text": "Agricultural Bank of China"
+        }},
+        {{
+            "id": "qr1",
+            "type": "quick_response",
+            "text": "When was the Spring Festival this year?" // when you see this `/` slash, separate it to two questions (you don't want the student to answer both in 10 seconds)
+        }},
+        {{
+            "id": "qr2",
+            "type": "quick_response",
+            "text": "When was the Lantern Festival this year?"
+        }}
+        {{
+            "id": "tr1",
+            "type": "translation",
+            "text": "小明住在北京，是一个人民小学的五年级学生。" // if it's provided as the answer (English), you need to translate it back to Chinese so it becomes the question text.
+        }},
+        {{
+            "id": "tr2",
+            "type": "translation",
+            "text": "我每天早上刷牙，洗脸，吃早餐。“ // skip "My telephone number is ", that's not a valid sentence.
+        }}
+    ] // skip "My Favorite City" and "My Best Friend" also, they're also not a complete sentence, not suitable for translation questions
+}}
+
+3. **Example Three**
+Input:
+
+```markdown
+# Paper 1
+Would you like me to carry the suitcase for you, Mrs. Lee?
+
+不要忘了去参观上海科技馆。
+
+# Paper 2
+reach out to sb.
+
+这个公司成功地设计了几辆车、
+
+
+浔阳江头夜送客，枫叶荻花秋瑟瑟。
+主人下马客在船，举酒欲饮无管弦。
+醉不成欢惨将别，别时茫茫江浸月。
+忽闻水上琵琶声，主人忘归客不发。
+```
+
+Output:
+
+{{
+    "success": true,
+    "message": "Extracted 4 questions from mixed content: 1 read aloud phrase, 1 quick response, and 2 translation questions. Skipped classical poetry as too complex for 10-year-olds",
+    "extracted_questions": [
+        {{
+            "id": "ra1",
+            "type": "read_aloud",
+            "text": "reach out to sb."
+        }},
+        {{
+            "id": "qr1",
+            "type": "quick_response",
+            "text": "Would you like me to carry the suitcase for you, Mrs.Lee?"
+        }},
+        {{
+            "id": "tr1",
+            "type": "translation",
+            "text": "不要忘了去参观上海科技馆。"
+        }},
+        {{
+            "id": "tr2",
+            "type": "translation",
+            "text": "这个公司成功地设计了几辆车。"
+        }}
+    ] // the poetry below is too hard for 10-year-old kids to translate, probably for question types beyond read_aloud, multiple_choice, quick_response and translation, skip.
+}}
+
+

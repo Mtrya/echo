@@ -241,7 +241,6 @@ class FileConverter:
         output_filename = f"{base_filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml"
 
         # 5. Save YAML file
-        from .paths import get_paths
         paths = get_paths()
         exams_dir = paths.exams_dir
         output_path = exams_dir / output_filename

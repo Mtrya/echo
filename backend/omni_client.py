@@ -168,7 +168,7 @@ class OmniClient:
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=120.0)
+                timeout=aiohttp.ClientTimeout(total=300.0)
             ) as response:
 
                 if response.status != 200:
