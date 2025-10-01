@@ -3,28 +3,28 @@
     <div class="audio-test-card">
       <!-- Test Audio Section -->
       <div class="test-section">
-        <div class="section-title">🔊 Test Speaker</div>
+        <div class="section-title">{{ translate('audioTest.testSpeaker') }}</div>
         <button @click="playTestAudio" class="btn btn-primary" :disabled="isPlaying">
-          {{ isPlaying ? '🔊 Playing...' : '🔊 Play Test Audio' }}
+          {{ isPlaying ? translate('audioTest.playing') : translate('audioTest.playTestAudio') }}
         </button>
       </div>
 
       <!-- Reading Practice Section -->
       <div class="reading-section">
-        <div class="section-title">📖 Practice Reading</div>
+        <div class="section-title">{{ translate('audioTest.practiceReading') }}</div>
         <div class="reading-card">
           <div class="reading-text">
-            Computer is an amazing machine that helps us learn, work, and connect with people around the world.
+            {{ translate('audioTest.readingText') }}
           </div>
         </div>
       </div>
 
       <!-- Recording Section -->
       <div class="recording-section">
-        <div class="section-title">🎙️ Test Microphone</div>
+        <div class="section-title">{{ translate('audioTest.testMicrophone') }}</div>
         <div class="recording-controls">
           <button @click="toggleRecording" class="btn" :class="isRecording ? 'btn-danger' : 'btn-secondary'">
-            {{ isRecording ? '⏹️ Stop Recording' : '🎙️ Start Recording' }}
+            {{ isRecording ? translate('audioTest.stopRecording') : translate('audioTest.startRecording') }}
           </button>
 
           <!-- Recording Visual Feedback -->
@@ -40,7 +40,7 @@
         <!-- Playback Recording -->
         <div v-if="recordedAudio" class="playback-section">
           <button @click="playRecordedAudio" class="btn btn-secondary" :disabled="isPlayingRecording">
-            {{ isPlayingRecording ? '🔊 Playing Recording...' : '🔊 Play Your Recording' }}
+            {{ isPlayingRecording ? translate('audioTest.playingRecording') : translate('audioTest.playRecording') }}
           </button>
         </div>
       </div>
@@ -65,6 +65,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 import Mp3Recorder from '../utils/mp3Recorder.js'
 
 export default {
@@ -77,6 +78,9 @@ export default {
   },
   emits: ['complete'],
   setup(props, { emit }) {
+    // Translation support
+    const { translate } = useTranslations()
+
     // Audio elements
     const testAudioPlayer = ref(null)
     const recordedAudioPlayer = ref(null)
@@ -121,7 +125,7 @@ export default {
         console.log('MP3 recorder initialized successfully')
       } catch (error) {
         console.error('Failed to initialize MP3 recorder:', error)
-        alert('Please allow microphone access to use this feature')
+        alert(translate('audioTest.microphoneAccess'))
       }
     }
 
@@ -349,9 +353,9 @@ export default {
     // Get start button text
     const getStartButtonText = () => {
       if (audioGenerationStatus.value === 'generating') {
-        return 'Generating Audio... Please Wait'
+        return translate('audioTest.generatingAudio')
       }
-      return 'Start Exam'
+      return translate('audioTest.startExam')
     }
 
     return {
@@ -370,7 +374,8 @@ export default {
       canStartExam,
       getStartButtonText,
       formatTime,
-      getWaveHeight
+      getWaveHeight,
+      translate
     }
   }
 }

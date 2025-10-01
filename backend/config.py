@@ -65,6 +65,9 @@ class Config:
                 "read_aloud": 10,
                 "quick_response": 10,
                 "translation": 20
+            },
+            "ui": {
+                "language": "en"
             }
         }
 
@@ -175,7 +178,13 @@ class Config:
                 if not isinstance(value, int) or value < 5 or value > 300:
                     errors.append(f"Time limit for {key} must be between 5 and 300 seconds")
 
-  
+        # Validate UI settings
+        if "ui" in config:
+            if "language" in config["ui"]:
+                language = config["ui"]["language"]
+                if language not in ["en", "zh"]:
+                    errors.append("Language must be 'en' or 'zh'")
+
         return errors
 
     def test_api_connection(self, api_key: str) -> Dict[str, Any]:

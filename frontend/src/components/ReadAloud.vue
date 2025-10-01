@@ -6,7 +6,7 @@
         {{ currentQuestion.text }}
       </div>
       <div class="status-text">
-        Get ready to read...
+        {{ translate('questions.readAloud.getReady') }}
       </div>
     </div>
 
@@ -16,7 +16,7 @@
         {{ currentQuestion.text }}
       </div>
       <div class="thinking-text">
-        Get ready...
+        {{ translate('questions.readAloud.getReady') }}
       </div>
       <div class="countdown-text">
         {{ countdownText }}
@@ -39,7 +39,7 @@
         @click="stopRecording"
         class="btn btn-stop"
       >
-        Stop Recording and Submit Immediately
+        {{ translate('questions.readAloud.stopRecording') }}
       </button>
     </div>
 
@@ -48,6 +48,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 import Mp3Recorder, { blobToBase64 } from '../utils/mp3Recorder.js'
 
 export default {
@@ -64,6 +65,9 @@ export default {
   },
   emits: ['complete'],
   setup(props, { emit }) {
+    // Translation support
+    const { translate } = useTranslations()
+
     // Phase management
     const phase = ref('display') // 'display', 'thinking', 'recording'
 
@@ -293,7 +297,8 @@ export default {
       phase,
       timeRemaining,
       countdownText,
-      stopRecording
+      stopRecording,
+      translate
     }
   }
 }

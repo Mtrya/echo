@@ -3,10 +3,10 @@
     <!-- Header with Go Home button -->
     <div class="header-section">
       <div>
-        <h1>File Converter</h1>
-        <p>Upload files to convert them into exam questions</p>
+        <h1>{{ translate('fileConverter.title') }}</h1>
+        <p>{{ translate('fileConverter.description') }}</p>
       </div>
-      <button @click="goHome" class="go-home-btn">🏠 Go Home</button>
+      <button @click="goHome" class="go-home-btn">🏠 {{ translate('fileConverter.goHome') }}</button>
     </div>
 
     <!-- File Upload Area -->
@@ -21,8 +21,8 @@
       <div class="upload-content">
         <div class="upload-icon">📁</div>
         <div class="upload-text">
-          <p><strong>Drop files here or click to upload</strong></p>
-          <p>Supported formats: .txt, .md, .docx, .pdf, .jpg, .jpeg, .png</p>
+          <p><strong>{{ translate('fileConverter.dragOver') }}</strong></p>
+          <p>{{ translate('fileConverter.supportedFormats') }}</p>
         </div>
         <input
           type="file"
@@ -37,7 +37,7 @@
 
     <!-- Selected Files List -->
     <div v-if="selectedFiles.length > 0" class="selected-files">
-      <h3>Selected Files ({{ selectedFiles.length }})</h3>
+      <h3>{{ translate('fileConverter.selectedFiles') }} ({{ selectedFiles.length }})</h3>
       <div class="file-list">
         <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
           <span class="file-name">{{ file.name }}</span>
@@ -52,14 +52,14 @@
           :disabled="isConverting || selectedFiles.length === 0"
           class="convert-btn"
         >
-          {{ isConverting ? 'Converting...' : 'Convert to Exam' }}
+          {{ isConverting ? translate('fileConverter.converting') : translate('fileConverter.convert') }}
         </button>
         <button
           @click="clearFiles"
           :disabled="isConverting"
           class="clear-btn"
         >
-          Clear All
+          {{ translate('fileConverter.clearAll') }}
         </button>
       </div>
     </div>
@@ -69,26 +69,26 @@
     <div v-if="showRenameModal" class="modal-overlay" @click="cancelRename">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>📝 Name Your Exam</h3>
+          <h3>📝 {{ translate('fileConverter.nameYourExam') }}</h3>
           <button @click="cancelRename" class="close-btn">×</button>
         </div>
         <div class="modal-body">
-          <p><strong>Current name:</strong> {{ currentFileName }}</p>
+          <p><strong>{{ translate('fileConverter.currentName') }}</strong> {{ currentFileName }}</p>
           <div class="input-group">
-            <label for="exam-name">Enter custom name (without .yaml extension):</label>
+            <label for="exam-name">{{ translate('fileConverter.enterCustomName') }}</label>
             <input
               id="exam-name"
               v-model="customExamName"
               type="text"
-              placeholder="Enter exam name"
+              :placeholder="translate('fileConverter.enterExamName')"
               class="text-input"
               @keyup.enter="confirmRename"
             >
           </div>
         </div>
         <div class="modal-actions">
-          <button @click="cancelRename" class="btn btn-secondary">Cancel</button>
-          <button @click="confirmRename" class="btn btn-primary">Save Name</button>
+          <button @click="cancelRename" class="btn btn-secondary">{{ translate('common.cancel') }}</button>
+          <button @click="confirmRename" class="btn btn-primary">{{ translate('common.save') }}</button>
         </div>
       </div>
     </div>
@@ -97,38 +97,38 @@
     <div v-if="showDeleteModal" class="modal-overlay" @click="cancelDelete">
       <div class="modal-content delete-modal" @click.stop>
         <div class="modal-header">
-          <h3>🗑️ Discard Exam</h3>
+          <h3>🗑️ {{ translate('fileConverter.discardExam') }}</h3>
           <button @click="cancelDelete" class="close-btn">×</button>
         </div>
         <div class="modal-body">
           <div class="warning-icon">⚠️</div>
-          <p>Are you sure you want to discard this exam?</p>
+          <p>{{ translate('fileConverter.discardConfirm') }}</p>
           <p class="file-name"><strong>{{ examToDelete }}</strong></p>
-          <p class="warning-text">This action cannot be undone.</p>
+          <p class="warning-text">{{ translate('fileConverter.cannotUndone') }}</p>
         </div>
         <div class="modal-actions">
-          <button @click="cancelDelete" class="btn btn-secondary">Cancel</button>
-          <button @click="confirmDelete" class="btn btn-danger">Discard Exam</button>
+          <button @click="cancelDelete" class="btn btn-secondary">{{ translate('common.cancel') }}</button>
+          <button @click="confirmDelete" class="btn btn-danger">{{ translate('fileConverter.deleteFile') }}</button>
         </div>
       </div>
     </div>
 
     <!-- Conversion Result -->
     <div v-if="conversionResult" class="conversion-result">
-      <h3>Conversion Result</h3>
+      <h3>{{ translate('fileConverter.conversionResult') }}</h3>
 
       <div v-if="conversionResult.success" class="success-result">
         <div class="success-icon">✅</div>
-        <p><strong>Success!</strong> {{ conversionResult.message }}</p>
-        <p>Generated {{ conversionResult.extracted_questions?.length || 0 }} questions</p>
+        <p><strong>{{ translate('common.success') }}!</strong> {{ conversionResult.message }}</p>
+        <p>{{ conversionResult.extracted_questions?.length || 0 }} {{ translate('fileConverter.questionsExtracted') }}</p>
 
         <div v-if="conversionResult.output_filename" class="output-file">
-          <p><strong>Output file:</strong> {{ conversionResult.output_filename }}</p>
+          <p><strong>{{ translate('fileConverter.outputFile') }}</strong> {{ conversionResult.output_filename }}</p>
         </div>
 
         <!-- Exam Preview -->
         <div v-if="conversionResult.extracted_questions && conversionResult.extracted_questions.length > 0" class="exam-preview">
-          <h4>Exam Preview</h4>
+          <h4>{{ translate('fileConverter.examPreview') }}</h4>
           <div class="questions-list">
             <div v-for="(question, index) in conversionResult.extracted_questions" :key="question.id" class="question-item">
               <div class="question-header">
@@ -144,29 +144,29 @@
               </div>
 
               <div v-if="question.reference_answer" class="question-answer">
-                <strong>Answer:</strong> {{ question.reference_answer }}
+                <strong>{{ translate('fileConverter.answer') }}</strong> {{ question.reference_answer }}
               </div>
             </div>
           </div>
         </div>
 
         <div class="result-actions">
-          <button @click="resetConverter" class="reset-btn">Convert More Files</button>
-          <button @click="discardExam" class="discard-btn">🗑️ Discard Exam</button>
+          <button @click="resetConverter" class="reset-btn">{{ translate('fileConverter.back') }}</button>
+          <button @click="discardExam" class="discard-btn">🗑️ {{ translate('fileConverter.discardExam') }}</button>
         </div>
       </div>
 
       <div v-else class="error-result">
         <div class="error-icon">❌</div>
-        <p><strong>Conversion Failed</strong></p>
+        <p><strong>{{ translate('fileConverter.conversionFailed') }}</strong></p>
         <p>{{ conversionResult.message }}</p>
         <div v-if="conversionResult.raw_error" class="error-details">
           <details>
-            <summary>Error Details</summary>
+            <summary>{{ translate('fileConverter.errorDetails') }}</summary>
             <pre>{{ conversionResult.raw_error }}</pre>
           </details>
         </div>
-        <button @click="resetConverter" class="retry-btn">Try Again</button>
+        <button @click="resetConverter" class="retry-btn">{{ translate('common.retry') }}</button>
       </div>
     </div>
   </div>
@@ -174,11 +174,13 @@
 
 <script>
 import { ref } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 
 export default {
   name: 'FileConverter',
   emits: ['start-exam', 'go-home'],
   setup(_, { emit }) {
+    const { translate } = useTranslations()
     const fileInput = ref(null)
     const isDragOver = ref(false)
     const isConverting = ref(false)
@@ -225,7 +227,7 @@ export default {
       })
 
       if (validFiles.length !== files.length) {
-        console.log('Some files were skipped. Only .txt, .md, .docx, .pdf, .jpg, .jpeg, .png files are supported.')
+        console.log(translate('fileConverter.filesSkipped'))
       }
 
       selectedFiles.value = [...selectedFiles.value, ...validFiles]
@@ -384,7 +386,7 @@ export default {
           }
         }
       } catch (renameError) {
-        console.warn('Failed to rename file:', renameError)
+        console.warn(translate('fileConverter.failedToRename'), renameError)
       } finally {
         cancelRename()
       }
@@ -415,7 +417,7 @@ export default {
           resetConverter()
         } else {
           // Show error in a more elegant way - could add a toast notification here
-          console.error('Failed to discard exam:', result.message)
+          console.error(translate('fileConverter.failedToDiscard'), result.message)
         }
       } catch (error) {
         console.error('Error discarding exam:', error)
@@ -436,6 +438,7 @@ export default {
       currentFileName,
       customExamName,
       examToDelete,
+      translate,
       triggerFileInput,
       handleDragOver,
       handleDragLeave,

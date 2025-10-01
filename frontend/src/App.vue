@@ -2,7 +2,7 @@
   <div class="app">
     <!-- Header -->
     <header class="header">
-      <h1>ECHO - English & Math Exam Platform</h1>
+      <h1>{{ translate('header.title') }}</h1>
     </header>
 
     <!-- Main Content Area -->
@@ -91,7 +91,7 @@
       <!-- Other pages will be added later -->
       <div v-else class="placeholder-page">
         <h2>{{ currentPage }} - Coming Soon</h2>
-        <button @click="currentPage = 'home'" class="btn btn-secondary">Back to Home</button>
+        <button @click="currentPage = 'home'" class="btn btn-secondary">{{ translate('common.back') }}</button>
       </div>
     </main>
 
@@ -109,6 +109,7 @@
 
 <script>
 import { ref } from 'vue'
+import { useTranslations } from './composables/useTranslations.js'
 import HomePage from './components/HomePage.vue'
 import AudioTest from './components/AudioTest.vue'
 import InstructionPage from './components/InstructionPage.vue'
@@ -135,6 +136,9 @@ export default {
     Settings
   },
   setup() {
+    // Translation support
+    const { translate } = useTranslations()
+
     // Navigation state
     const currentPage = ref('home')
     const sessionId = ref(null)
@@ -318,6 +322,7 @@ export default {
       currentQuestionType,
       showSettings,
       homePage,
+      translate,
       handleStartExam,
       handleAudioTestComplete,
       handleInstructionComplete,

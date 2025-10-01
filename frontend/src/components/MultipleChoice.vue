@@ -32,7 +32,7 @@
         class="btn btn-submit"
         :disabled="!selectedOption"
       >
-        Submit Answer Immediately
+        {{ translate('questions.multipleChoice.submitAnswer') }}
       </button>
     </div>
 
@@ -54,7 +54,7 @@
       </div>
 
       <div class="auto-submit-text">
-        Time's up! Submitting your answer...
+        {{ translate('questions.multipleChoice.timeUp') }}
       </div>
     </div>
   </div>
@@ -62,6 +62,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 
 export default {
   name: 'MultipleChoice',
@@ -77,6 +78,9 @@ export default {
   },
   emits: ['complete'],
   setup(props, { emit }) {
+    // Translation support
+    const { translate } = useTranslations()
+
     // Phase management
     const phase = ref('question') // 'question', 'auto-submit'
 
@@ -202,7 +206,8 @@ export default {
       timeRemaining,
       selectedOption,
       selectOption,
-      submitAnswer
+      submitAnswer,
+      translate
     }
   }
 }

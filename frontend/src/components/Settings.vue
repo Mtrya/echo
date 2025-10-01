@@ -1,7 +1,7 @@
 <template>
   <div class="settings">
     <div class="settings-header">
-      <h1>Settings</h1>
+      <h1>{{ translate('settings.title') }}</h1>
       <button @click="$emit('close-settings')" class="close-btn">×</button>
     </div>
 
@@ -20,7 +20,7 @@
       <!-- API Settings -->
       <div v-if="currentTab === 'api'" class="tab-content">
         <div class="setting-group">
-          <label>Dashscope API Key</label>
+          <label>{{ translate('settings.api.dashscopeKey') }}</label>
           <div class="api-input-group">
             <input
               v-model="settings.api.dashscope_key"
@@ -33,7 +33,7 @@
               :disabled="!settings.api.dashscope_key || isTesting"
               class="test-btn"
             >
-              {{ isTesting ? 'Testing...' : 'Test' }}
+              {{ isTesting ? translate('settings.api.testing') : translate('settings.api.test') }}
             </button>
           </div>
           <div v-if="apiTestResult" :class="['api-result', apiTestResult.success ? 'success' : 'error']">
@@ -47,9 +47,9 @@
               rel="noopener noreferrer"
               class="get-key-link"
             >
-              🔑 Get Dashscope API Key
+              🔑 {{ translate('settings.api.getKey') }}
             </a>
-            <span class="help-text">Don't have an API key? Get one from Alibaba Cloud Dashscope</span>
+            <span class="help-text">{{ translate('settings.api.helpText') }}</span>
           </div>
         </div>
       </div>
@@ -57,7 +57,7 @@
       <!-- Model Settings -->
       <div v-if="currentTab === 'models'" class="tab-content">
         <div class="setting-group">
-          <label>Omni Model (for TTS, ASR, Grading)</label>
+          <label>{{ translate('settings.models.omniModel') }}</label>
           <select v-model="settings.models.omni_model" @change="updateVoiceOptions">
             <option v-for="model in options.omni_models" :key="model" :value="model">
               {{ model }}
@@ -66,7 +66,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Vision Model (for File Conversion)</label>
+          <label>{{ translate('settings.models.visionModel') }}</label>
           <select v-model="settings.models.vision_model">
             <option v-for="model in options.vision_models" :key="model" :value="model">
               {{ model }}
@@ -75,7 +75,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Instruction Voice (for exam instructions)</label>
+          <label>{{ translate('settings.models.instructionVoice') }}</label>
           <select v-model="settings.models.instruction_voice">
             <option v-for="voice in availableVoices" :key="voice" :value="voice">
               {{ voice }}
@@ -84,7 +84,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Response Voice (for quick-response questions)</label>
+          <label>{{ translate('settings.models.responseVoice') }}</label>
           <select v-model="settings.models.response_voice">
             <option v-for="voice in availableVoices" :key="voice" :value="voice">
               {{ voice }}
@@ -96,7 +96,7 @@
       <!-- Timer Settings -->
       <div v-if="currentTab === 'timers'" class="tab-content">
         <div class="setting-group">
-          <label>Multiple Choice (seconds)</label>
+          <label>{{ translate('settings.timers.multipleChoice') }}</label>
           <input
             v-model.number="settings.time_limits.multiple_choice"
             type="number"
@@ -106,7 +106,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Read Aloud (seconds)</label>
+          <label>{{ translate('settings.timers.readAloud') }}</label>
           <input
             v-model.number="settings.time_limits.read_aloud"
             type="number"
@@ -116,7 +116,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Quick Response (seconds)</label>
+          <label>{{ translate('settings.timers.quickResponse') }}</label>
           <input
             v-model.number="settings.time_limits.quick_response"
             type="number"
@@ -126,7 +126,7 @@
         </div>
 
         <div class="setting-group">
-          <label>Translation (seconds)</label>
+          <label>{{ translate('settings.timers.translation') }}</label>
           <input
             v-model.number="settings.time_limits.translation"
             type="number"
@@ -136,12 +136,38 @@
         </div>
       </div>
 
+      <!-- Language Settings -->
+      <div v-if="currentTab === 'language'" class="tab-content">
+        <div class="setting-group">
+          <label>{{ translate('settings.language.title') }}</label>
+          <div class="language-options">
+            <label class="radio-option">
+              <input
+                type="radio"
+                :checked="settings.ui.language === 'en'"
+                @change="updateLanguage('en')"
+              />
+              <span class="radio-label">{{ translate('settings.language.english') }}</span>
+            </label>
+            <label class="radio-option">
+              <input
+                type="radio"
+                :checked="settings.ui.language === 'zh'"
+                @change="updateLanguage('zh')"
+              />
+              <span class="radio-label">{{ translate('settings.language.chinese') }}</span>
+            </label>
+          </div>
+          <p class="language-description">{{ translate('settings.language.description') }}</p>
+        </div>
+      </div>
+
     </div>
 
     <div class="settings-actions">
-      <button @click="resetToDefaults" class="reset-btn">Reset to Defaults</button>
+      <button @click="resetToDefaults" class="reset-btn">{{ translate('settings.actions.reset') }}</button>
       <button @click="saveSettings" :disabled="isSaving" class="save-btn">
-        {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        {{ isSaving ? translate('settings.actions.saving') : translate('settings.actions.save') }}
       </button>
     </div>
 
@@ -153,22 +179,25 @@
 
 <script>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 
 export default {
   name: 'Settings',
   emits: ['close-settings', 'settings-updated'],
   setup(_, { emit }) {
+    const { translate, language } = useTranslations()
     const currentTab = ref('api')
     const isTesting = ref(false)
     const isSaving = ref(false)
     const apiTestResult = ref(null)
     const saveResult = ref(null)
 
-    const tabs = [
-      { id: 'api', name: 'API' },
-      { id: 'models', name: 'Models' },
-      { id: 'timers', name: 'Timers' }
-    ]
+    const tabs = computed(() => [
+      { id: 'api', name: translate('settings.tabs.api') },
+      { id: 'models', name: translate('settings.tabs.models') },
+      { id: 'timers', name: translate('settings.tabs.timers') },
+      { id: 'language', name: translate('settings.tabs.language') }
+    ])
 
     const settings = reactive({
       api: {
@@ -186,6 +215,9 @@ export default {
         quick_response: 15,
         translation: 30
       },
+      ui: {
+        language: 'en'
+      }
       })
 
     const originalSettings = reactive({})
@@ -215,6 +247,10 @@ export default {
           Object.assign(originalSettings, JSON.parse(JSON.stringify(data.config)))
           Object.assign(options, data.options)
 
+          // Load language preference from settings if available
+          if (data.config.ui && data.config.ui.language) {
+            language.value = data.config.ui.language
+          }
           }
       } catch (error) {
         console.error('Failed to load settings:', error)
@@ -263,15 +299,22 @@ export default {
       saveResult.value = null
 
       try {
+        // Create a clean copy of settings to avoid Vue reactive objects
+        const cleanSettings = JSON.parse(JSON.stringify(settings))
+        const configToSave = { config: cleanSettings }
+        console.log('Saving settings - Sending to backend:', JSON.stringify(configToSave, null, 2))
+
         const response = await fetch('/settings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ config: settings })
+          body: JSON.stringify(configToSave)
         })
 
+        console.log('Save settings response status:', response.status)
         const result = await response.json()
+        console.log('Save settings response data:', result)
 
         if (result.success) {
           saveResult.value = { success: true, message: 'Settings saved successfully' }
@@ -299,8 +342,14 @@ export default {
       settings.time_limits.read_aloud = 10
       settings.time_limits.quick_response = 10
       settings.time_limits.translation = 20
+      settings.ui.language = 'en'
       // Restore API key
       settings.api.dashscope_key = currentApiKey
+    }
+
+    const updateLanguage = (newLanguage) => {
+      settings.ui.language = newLanguage
+      language.value = newLanguage
     }
 
 
@@ -323,7 +372,10 @@ export default {
       testApiConnection,
       updateVoiceOptions,
       saveSettings,
-      resetToDefaults
+      resetToDefaults,
+      translate,
+      language,
+      updateLanguage
     }
   }
 }
@@ -514,6 +566,36 @@ export default {
 .theme-name {
   font-weight: 500;
   text-transform: capitalize;
+}
+
+.language-options {
+  display: flex;
+  gap: 20px;
+  margin-top: 10px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.radio-option input[type="radio"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.radio-label {
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.language-description {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
 }
 
 .settings-actions {

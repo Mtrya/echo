@@ -2,25 +2,25 @@
   <div class="home-page">
     <div class="button-column">
       <!-- Settings Button -->
-      <button @click="$emit('open-settings')" class="btn btn-secondary" :class="{ 'btn-warning': !hasApiKey }">⚙️ Settings</button>
+      <button @click="$emit('open-settings')" class="btn btn-secondary" :class="{ 'btn-warning': !hasApiKey }">⚙️ {{ translate('home.settings') }}</button>
 
       <!-- File Converter Button -->
-      <button @click="openFileConverter" class="btn btn-secondary" :disabled="!hasApiKey" :title="!hasApiKey ? 'Configure API key first' : ''">
-        📁 Create Exam from Files
+      <button @click="openFileConverter" class="btn btn-secondary" :disabled="!hasApiKey" :title="!hasApiKey ? translate('home.apiRequired') : ''">
+        📁 {{ translate('home.createExam') }}
       </button>
 
       <!-- Exam Selection -->
-      <button @click="handleExamListClick" class="btn btn-primary" :disabled="!hasApiKey" :title="!hasApiKey ? 'Configure API key first' : ''">
-        📋 Select Exam
+      <button @click="handleExamListClick" class="btn btn-primary" :disabled="!hasApiKey" :title="!hasApiKey ? translate('home.apiRequired') : ''">
+        📋 {{ translate('home.selectExam') }}
       </button>
 
       <!-- Start Exam -->
-      <button @click="startExam" class="btn btn-primary" :disabled="!hasApiKey || !selectedExam" :title="!hasApiKey ? 'Configure API key first' : !selectedExam ? 'Select an exam first' : ''">
+      <button @click="startExam" class="btn btn-primary" :disabled="!hasApiKey || !selectedExam" :title="!hasApiKey ? translate('home.apiRequired') : !selectedExam ? translate('home.selectExamFirst') : ''">
         <span v-if="selectedExam">
-          🚀 Start: <span class="exam-name-text">{{ selectedExam }}</span>
+          🚀 {{ translate('home.startExam') }}: <span class="exam-name-text">{{ selectedExam }}</span>
         </span>
         <span v-else>
-          🚀 Start Exam
+          🚀 {{ translate('home.startExam') }}
         </span>
       </button>
     </div>
@@ -29,11 +29,11 @@
     <div v-if="showExamList" class="modal-overlay" @click="showExamList = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>Select an Exam</h3>
+          <h3>{{ translate('home.selectExamTitle') }}</h3>
           <label class="toggle-container">
             <input type="checkbox" v-model="showCompletedExams" @change="handleToggleChange">
             <span class="toggle-slider"></span>
-            <span class="toggle-label">Show completed</span>
+            <span class="toggle-label">{{ translate('home.showCompleted') }}</span>
           </label>
         </div>
         <div class="exam-list">
@@ -51,7 +51,7 @@
             <span v-if="completedExams.includes(exam)" class="completed-badge">✓</span>
           </div>
         </div>
-        <button @click="showExamList = false" class="btn btn-secondary">Close</button>
+        <button @click="showExamList = false" class="btn btn-secondary">{{ translate('home.close') }}</button>
       </div>
     </div>
 
@@ -59,7 +59,7 @@
     <div v-if="showAlert" class="modal-overlay" @click="showAlert = false">
       <div class="modal-content alert-content" @click.stop>
         <p>{{ alertMessage }}</p>
-        <button @click="showAlert = false" class="btn btn-primary">OK</button>
+        <button @click="showAlert = false" class="btn btn-primary">{{ translate('common.ok') }}</button>
       </div>
     </div>
   </div>
@@ -67,11 +67,15 @@
 
 <script>
 import { ref, onMounted } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 
 export default {
   name: 'HomePage',
   emits: ['start-exam', 'file-converter', 'open-settings'], // Declare that this component can emit events
   setup(_, { emit }) {
+    // Translation support
+    const { translate } = useTranslations()
+
     // State management
     const showExamList = ref(false)
     const showAlert = ref(false)
@@ -220,6 +224,7 @@ export default {
       completedExams,
       showCompletedExams,
       hasApiKey,
+      translate,
       selectExam,
       openFileConverter,
       handleExamListClick,

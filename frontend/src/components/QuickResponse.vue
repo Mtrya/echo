@@ -4,7 +4,7 @@
     <div v-if="phase === 'playback'" class="playback-phase">
       <div class="playback-icon">🎧</div>
       <div class="playback-text">
-        Listening to question...
+        {{ translate('questions.quickResponse.listening') }}
       </div>
       <div class="status-text">
         {{ audioStatus }}
@@ -15,7 +15,7 @@
     <div v-else-if="phase === 'ready'" class="ready-phase">
       <div class="ready-icon">⏱️</div>
       <div class="ready-text">
-        Get ready to answer...
+        {{ translate('questions.quickResponse.getReady') }}
       </div>
       <div class="countdown-text">
         {{ countdownText }}
@@ -25,7 +25,7 @@
     <!-- Recording Phase -->
     <div v-else-if="phase === 'recording'" class="recording-phase">
       <div class="recording-instruction">
-        🎤 Speak your answer now
+        {{ translate('questions.quickResponse.speakNow') }}
       </div>
       <div class="recording-indicator" :class="{ 'recording-danger': timeRemaining <= 5 }">
         <div class="recording-dot"></div>
@@ -38,14 +38,14 @@
         @click="stopRecording"
         class="btn btn-stop"
       >
-        Stop Recording and Submit Immediately
+        {{ translate('questions.quickResponse.stopRecording') }}
       </button>
     </div>
 
     <!-- Auto-submit Phase -->
     <div v-else-if="phase === 'auto-submit'" class="auto-submit-phase">
       <div class="auto-submit-text">
-        Time's up! Submitting your answer...
+        {{ translate('questions.quickResponse.timeUp') }}
       </div>
     </div>
 
@@ -56,6 +56,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useTranslations } from '../composables/useTranslations.js'
 import Mp3Recorder, { blobToBase64 } from '../utils/mp3Recorder.js'
 
 export default {
@@ -72,6 +73,9 @@ export default {
   },
   emits: ['complete'],
   setup(props, { emit }) {
+    // Translation support
+    const { translate } = useTranslations()
+
     // Phase management
     const phase = ref('playback') // 'playback', 'ready', 'recording', 'auto-submit'
 
@@ -346,7 +350,8 @@ export default {
       audioPlayer,
       audioStatus,
       countdownText,
-      stopRecording
+      stopRecording,
+      translate
     }
   }
 }
