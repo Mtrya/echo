@@ -97,7 +97,9 @@ export const translations = {
       errorDetails: "Error Details",
       filesSkipped: "Some files were skipped. Only .txt, .md, .docx, .pdf, .jpg, .jpeg, .png files are supported.",
       failedToRename: "Failed to rename file:",
-      failedToDiscard: "Failed to discard exam:"
+      failedToDiscard: "Failed to discard exam:",
+      examCreatedSuccessfully: "Exam created successfully!",
+      converterMessage: "File Converter Message:"
     },
 
     // AudioTest
@@ -336,7 +338,9 @@ export const translations = {
       errorDetails: "错误详情",
       filesSkipped: "某些文件被跳过。仅支持 .txt, .md, .docx, .pdf, .jpg, .jpeg, .png 文件。",
       failedToRename: "重命名文件失败：",
-      failedToDiscard: "删除考试失败："
+      failedToDiscard: "删除考试失败：",
+      examCreatedSuccessfully: "考试创建成功！",
+      converterMessage: "文件转换器消息："
     },
 
     // AudioTest

@@ -119,8 +119,14 @@
 
       <div v-if="conversionResult.success" class="success-result">
         <div class="success-icon">✅</div>
-        <p><strong>{{ translate('common.success') }}!</strong> {{ conversionResult.message }}</p>
+        <p><strong>{{ translate('common.success') }}!</strong> {{ translate('fileConverter.examCreatedSuccessfully') }}</p>
         <p>{{ conversionResult.extracted_questions?.length || 0 }} {{ translate('fileConverter.questionsExtracted') }}</p>
+
+        <!-- File Converter Message Box -->
+        <div v-if="conversionResult.message" class="converter-message">
+          <h4>{{ translate('fileConverter.converterMessage') }}</h4>
+          <p>{{ conversionResult.message }}</p>
+        </div>
 
         <div v-if="conversionResult.output_filename" class="output-file">
           <p><strong>{{ translate('fileConverter.outputFile') }}</strong> {{ conversionResult.output_filename }}</p>
@@ -159,7 +165,12 @@
       <div v-else class="error-result">
         <div class="error-icon">❌</div>
         <p><strong>{{ translate('fileConverter.conversionFailed') }}</strong></p>
-        <p>{{ conversionResult.message }}</p>
+
+        <!-- File Converter Message Box for Errors -->
+        <div v-if="conversionResult.message" class="converter-message error">
+          <h4>{{ translate('fileConverter.converterMessage') }}</h4>
+          <p>{{ conversionResult.message }}</p>
+        </div>
         <div v-if="conversionResult.raw_error" class="error-details">
           <details>
             <summary>{{ translate('fileConverter.errorDetails') }}</summary>
@@ -665,6 +676,40 @@ p {
 .success-icon, .error-icon {
   font-size: 24px;
   margin-bottom: 10px;
+}
+
+.converter-message {
+  margin: 15px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #cce5ff;
+  border-radius: 8px;
+}
+
+.converter-message h4 {
+  margin: 0 0 10px 0;
+  color: #004085;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.converter-message p {
+  margin: 0;
+  color: #0056b3;
+  font-style: italic;
+}
+
+.converter-message.error {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #f8d7da;
+}
+
+.converter-message.error h4 {
+  color: #721c24;
+}
+
+.converter-message.error p {
+  color: #721c24;
 }
 
 .output-file {

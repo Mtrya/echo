@@ -57,7 +57,7 @@ Quick response:
 Output:
 {{
     "success": true,
-    "message": "Extracted 4 questions from 2 sets: 2 read aloud and 2 quick response questions",
+    "message": "Successfully extracted questions from 2 sets, including read aloud and quick response types",
     "extracted_questions": [
         {{
             "id": "ra1",
@@ -111,7 +111,7 @@ My Best Friend
 Output:
 {{
     "success": true,
-    "message": "Extracted 7 questions: 5 read aloud words/phrases, 2 quick response questions, and 2 translation questions. Skipped incomplete sentences and age-inappropriate content",
+    "message": "Successfully extracted various question types including read aloud, quick response, and translation questions. Some content was skipped due to being incomplete or age-inappropriate",
     "extracted_questions": [
         {{
             "id": "ra1",
@@ -172,7 +172,7 @@ Output:
 
 {{
     "success": true,
-    "message": "Extracted 4 questions from mixed content: 1 read aloud phrase, 1 quick response, and 2 translation questions. Skipped classical poetry as too complex for 10-year-olds",
+    "message": "Successfully extracted questions from mixed content with various question types. Some complex content like classical poetry was skipped as it's too advanced for 10-year-olds",
     "extracted_questions": [
         {{
             "id": "ra1",
