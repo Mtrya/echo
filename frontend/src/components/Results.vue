@@ -12,7 +12,7 @@
           <div class="score-label">{{ translate('results.outOf') }} {{ totalQuestions || '?' }}</div>
         </div>
         <div class="processing-info" v-if="!allProcessed">
-          <p v-if="!timeoutOccurred">{{ translate('results.processing', [formatCount(processedCount), totalQuestionCount]) }}</p>
+          <p v-if="!timeoutOccurred">{{ translate('results.processing', [formatCount(processedCount), totalQuestionCount ?? '?']) }}</p>
           <p v-else class="timeout-warning">{{ translate('results.timeoutWarning', [Math.floor(POLLING_TIMEOUT / 1000)]) }}</p>
         </div>
       </div>
@@ -95,268 +95,244 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
+import type { ExamResultsResponse, QuestionResult } from '@/types'
 
-export default {
-  name: 'Results',
-  props: {
-    sessionId: {
-      type: String,
-      required: true
+// Props
+const props = defineProps<{
+  sessionId: string
+}>()
+
+// Emits
+const emit = defineEmits<{
+  'new-exam': []
+  'go-home': []
+}>()
+
+// Translation support
+const { translate } = useTranslations()
+
+// Reactive state with proper types
+const score = ref<number | null>(null)
+const totalQuestions = ref<number | null>(null)
+const totalQuestionCount = ref<number | null>(null)
+const percentage = ref<number | null>(null)
+const resultsData = ref<ExamResultsResponse | null>(null)
+const allProcessed = ref<boolean>(false)
+const processedCount = ref<number>(0)
+const isCheckingStatus = ref<boolean>(false)
+const isPlayingAudio = ref<number | null>(null) // Track which question's audio is playing
+const timeoutOccurred = ref<boolean>(false) // Track if timeout has occurred
+const pollingStartTime = ref<number | null>(null) // Track when polling started
+
+// Audio player element
+const audioPlayer = ref<HTMLAudioElement | null>(null)
+
+// Timeout configuration (60 seconds)
+const POLLING_TIMEOUT: number = 60000
+
+// Start checking status when component mounts
+onMounted(async () => {
+  await loadResults()
+})
+
+// Cleanup audio player when component unmounts
+onUnmounted(() => {
+  if (audioPlayer.value) {
+    audioPlayer.value.pause()
+    audioPlayer.value.onended = null
+    audioPlayer.value.onerror = null
+    audioPlayer.value = null
+  }
+})
+
+// Load results from backend (polling until all processed or timeout)
+const loadResults = async (): Promise<void> => {
+  if (isCheckingStatus.value) return
+
+  // Initialize polling start time if not set
+  if (!pollingStartTime.value) {
+    pollingStartTime.value = Date.now()
+  }
+
+  // Check for timeout
+  const elapsedTime = Date.now() - (pollingStartTime.value || 0)
+  if (elapsedTime > POLLING_TIMEOUT && !timeoutOccurred.value) {
+    console.log('Polling timeout reached, forcing results display')
+    timeoutOccurred.value = true
+    await handleTimeout()
+    return
+  }
+
+  try {
+    isCheckingStatus.value = true
+    console.log('Loading results for session:', props.sessionId)
+    const response = await fetch(apiUrl(`/session/${props.sessionId}/results`))
+    console.log('Response status:', response.status)
+
+    // Check if timeout occurred while waiting for response
+    if (timeoutOccurred.value) {
+      console.log('Timeout occurred during request, stopping polling')
+      return
     }
-  },
-  setup(props, { emit }) {
-    // Translation support
-    const { translate } = useTranslations()
 
-    const score = ref(null)
-    const totalQuestions = ref(null)
-    const totalQuestionCount = ref(null)
-    const percentage = ref(null)
-    const resultsData = ref(null)
-    const allProcessed = ref(false)
-    const processedCount = ref(0)
-    const isCheckingStatus = ref(false)
-    const isPlayingAudio = ref(null) // Track which question's audio is playing
-    const timeoutOccurred = ref(false) // Track if timeout has occurred
-    const pollingStartTime = ref(null) // Track when polling started
+    if (response.ok) {
+      const data: ExamResultsResponse = await response.json()
+      console.log('Results loaded:', data)
+      resultsData.value = data
+      score.value = data.total_score
+      totalQuestions.value = data.max_score
+      percentage.value = Math.round(data.percentage)
+      allProcessed.value = data.all_processed
+      processedCount.value = data.processed_count
+      // Store total question count separately for display
+      totalQuestionCount.value = data.total_questions
 
-    // Audio player element
-    const audioPlayer = ref(null)
+      // If not all processed and no timeout, continue polling
+      if (!data.all_processed && !timeoutOccurred.value) {
+        setTimeout(loadResults, 2000)
+      }
+    } else {
+      console.error('Failed to load results:', response.status)
+      // Continue polling on error if no timeout
+      if (!timeoutOccurred.value) {
+        setTimeout(loadResults, 2000)
+      }
+    }
+  } catch (error) {
+    console.error('Error loading results:', error)
+    // Continue polling on error if no timeout
+    if (!timeoutOccurred.value) {
+      setTimeout(loadResults, 2000)
+    }
+  } finally {
+    isCheckingStatus.value = false
+  }
+}
 
-    // Timeout configuration (60 seconds)
-    const POLLING_TIMEOUT = 60000
+// Handle timeout by generating failed results for unprocessed questions
+const handleTimeout = async (): Promise<void> => {
+  if (!resultsData.value) return
 
-    // Start checking status when component mounts
-    onMounted(async () => {
-      await loadResults()
+  console.log('Handling timeout, generating failed question results')
+
+  // Create a copy of the results data
+  const modifiedResults: ExamResultsResponse = { ...resultsData.value }
+
+  // Get indices of questions that haven't been processed
+  const processedIndices = new Set(modifiedResults.question_results.map((q: QuestionResult) => q.question_index))
+  const totalQuestionsCount = modifiedResults.total_questions
+
+  // Generate failed results for unprocessed questions
+  for (let i = 0; i < totalQuestionsCount; i++) {
+    if (!processedIndices.has(i)) {
+      const failedResult = generateFailedQuestionResult(i)
+      modifiedResults.question_results.push(failedResult)
+    }
+  }
+
+  // Sort questions by index
+  modifiedResults.question_results.sort((a: QuestionResult, b: QuestionResult) => a.question_index - b.question_index)
+
+  // Update the results data
+  modifiedResults.all_processed = true
+  modifiedResults.processed_count = totalQuestionsCount
+  resultsData.value = modifiedResults
+  allProcessed.value = true
+}
+
+// Generate a failed question result
+const generateFailedQuestionResult = (questionIndex: number): QuestionResult => {
+  // Try to get question info from the original exam data
+  // Since we don't have the full exam data, we'll create a generic failed result
+  return {
+    question_index: questionIndex,
+    question_id: `question_${questionIndex}`,
+    question_type: "unknown",
+    question_text: translate('results.questionProcessingFailed'),
+    score: 0,
+    feedback: translate('results.processingTimeout'),
+    explanation: translate('results.timeoutExplanation')
+  }
+}
+
+// Start a new exam
+const startNewExam = (): void => {
+  emit('new-exam')
+}
+
+// Go back to home
+const goHome = (): void => {
+  emit('go-home')
+}
+
+// Format duration in seconds to readable format
+const formatDuration = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes}m ${remainingSeconds}s`
+}
+
+// Format score to show one decimal place
+const formatScore = (score: number | null): string => {
+  if (score === null || score === undefined) return '?'
+  return parseFloat(score.toString()).toFixed(1)
+}
+
+// Format count to start at 1 instead of 0
+const formatCount = (count: number | null): string => {
+  if (count === null || count === undefined) return '?'
+  return Math.max(1, count).toString()
+}
+
+// Format question type for display
+const formatQuestionType = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    'read_aloud': 'Read Aloud',
+    'multiple_choice': 'Multiple Choice',
+    'quick_response': 'Quick Response',
+    'translation': 'Translation'
+  }
+  return typeMap[type] || type
+}
+
+// Play student audio recording
+const playStudentAudio = (audioPath: string, questionIndex: number): void => {
+  if (isPlayingAudio.value === questionIndex) return // Already playing
+
+  try {
+    isPlayingAudio.value = questionIndex
+
+    // Initialize audio player if needed
+    if (!audioPlayer.value) {
+      audioPlayer.value = new Audio()
+    }
+
+    // Construct the full URL for the audio file
+    const audioUrl = apiUrl(`/audio_cache/${audioPath}`)
+
+    // Set up audio player
+    audioPlayer.value.src = audioUrl
+    audioPlayer.value.onended = () => {
+      isPlayingAudio.value = null
+    }
+    audioPlayer.value.onerror = (error) => {
+      console.error('Error playing audio:', error)
+      isPlayingAudio.value = null
+    }
+
+    // Play the audio
+    audioPlayer.value.play().catch(error => {
+      console.error('Failed to play audio:', error)
+      isPlayingAudio.value = null
     })
 
-    // Cleanup audio player when component unmounts
-    onUnmounted(() => {
-      if (audioPlayer.value) {
-        audioPlayer.value.pause()
-        audioPlayer.value.onended = null
-        audioPlayer.value.onerror = null
-        audioPlayer.value = null
-      }
-    })
-
-    // Load results from backend (polling until all processed or timeout)
-    const loadResults = async () => {
-      if (isCheckingStatus.value) return
-
-      // Initialize polling start time if not set
-      if (!pollingStartTime.value) {
-        pollingStartTime.value = Date.now()
-      }
-
-      // Check for timeout
-      const elapsedTime = Date.now() - pollingStartTime.value
-      if (elapsedTime > POLLING_TIMEOUT && !timeoutOccurred.value) {
-        console.log('Polling timeout reached, forcing results display')
-        timeoutOccurred.value = true
-        await handleTimeout()
-        return
-      }
-
-      try {
-        isCheckingStatus.value = true
-        console.log('Loading results for session:', props.sessionId)
-        const response = await fetch(apiUrl(`/session/${props.sessionId}/results`))
-        console.log('Response status:', response.status)
-
-        // Check if timeout occurred while waiting for response
-        if (timeoutOccurred.value) {
-          console.log('Timeout occurred during request, stopping polling')
-          return
-        }
-
-        if (response.ok) {
-          const data = await response.json()
-          console.log('Results loaded:', data)
-          resultsData.value = data
-          const maxPossibleScore = data.total_questions * 5
-          score.value = data.total_score
-          totalQuestions.value = maxPossibleScore
-          percentage.value = Math.round((data.total_score / maxPossibleScore) * 100)
-          allProcessed.value = data.all_processed
-          processedCount.value = data.processed_count
-          // Store total question count separately for display
-          totalQuestionCount.value = data.total_questions
-
-          // If not all processed and no timeout, continue polling
-          if (!data.all_processed && !timeoutOccurred.value) {
-            setTimeout(loadResults, 2000)
-          }
-        } else {
-          console.error('Failed to load results:', response.status)
-          // Continue polling on error if no timeout
-          if (!timeoutOccurred.value) {
-            setTimeout(loadResults, 2000)
-          }
-        }
-      } catch (error) {
-        console.error('Error loading results:', error)
-        // Continue polling on error if no timeout
-        if (!timeoutOccurred.value) {
-          setTimeout(loadResults, 2000)
-        }
-      } finally {
-        isCheckingStatus.value = false
-      }
-    }
-
-    // Handle timeout by generating failed results for unprocessed questions
-    const handleTimeout = async () => {
-      if (!resultsData.value) return
-
-      console.log('Handling timeout, generating failed question results')
-
-      // Create a copy of the results data
-      const modifiedResults = { ...resultsData.value }
-
-      // Get indices of questions that haven't been processed
-      const processedIndices = new Set(modifiedResults.question_results.map(q => q.question_index))
-      const totalQuestions = modifiedResults.total_questions
-
-      // Generate failed results for unprocessed questions
-      for (let i = 0; i < totalQuestions; i++) {
-        if (!processedIndices.has(i)) {
-          const failedResult = generateFailedQuestionResult(i)
-          modifiedResults.question_results.push(failedResult)
-        }
-      }
-
-      // Sort questions by index
-      modifiedResults.question_results.sort((a, b) => a.question_index - b.question_index)
-
-      // Update the results data
-      modifiedResults.all_processed = true
-      modifiedResults.processed_count = totalQuestions
-      resultsData.value = modifiedResults
-      allProcessed.value = true
-    }
-
-    // Generate a failed question result
-    const generateFailedQuestionResult = (questionIndex) => {
-      // Try to get question info from the original exam data
-      // Since we don't have the full exam data, we'll create a generic failed result
-      return {
-        question_index: questionIndex,
-        question_id: `question_${questionIndex}`,
-        question_type: "unknown",
-        question_text: translate('results.questionProcessingFailed'),
-        score: 0,
-        feedback: translate('results.processingTimeout'),
-        explanation: translate('results.timeoutExplanation'),
-        suggested_answer: null,
-        student_answer: null,
-        reference_answer: null,
-        student_audio_path: null
-      }
-    }
-
-
-    // Start a new exam
-    const startNewExam = () => {
-      emit('new-exam')
-    }
-
-    // Go back to home
-    const goHome = () => {
-      emit('go-home')
-    }
-
-    // Format duration in seconds to readable format
-    const formatDuration = (seconds) => {
-      const minutes = Math.floor(seconds / 60)
-      const remainingSeconds = seconds % 60
-      return `${minutes}m ${remainingSeconds}s`
-    }
-
-    // Format score to show one decimal place
-    const formatScore = (score) => {
-      if (score === null || score === undefined) return '?'
-      return parseFloat(score).toFixed(1)
-    }
-
-    // Format count to start at 1 instead of 0
-    const formatCount = (count) => {
-      if (count === null || count === undefined) return '?'
-      return Math.max(1, count)
-    }
-
-    // Format question type for display
-    const formatQuestionType = (type) => {
-      const typeMap = {
-        'read_aloud': 'Read Aloud',
-        'multiple_choice': 'Multiple Choice',
-        'quick_response': 'Quick Response',
-        'translation': 'Translation'
-      }
-      return typeMap[type] || type
-    }
-
-    // Play student audio recording
-    const playStudentAudio = (audioPath, questionIndex) => {
-      if (isPlayingAudio.value === questionIndex) return // Already playing
-
-      try {
-        isPlayingAudio.value = questionIndex
-
-        // Initialize audio player if needed
-        if (!audioPlayer.value) {
-          audioPlayer.value = new Audio()
-        }
-
-        // Construct the full URL for the audio file
-        const audioUrl = apiUrl(`/audio_cache/${audioPath}`)
-
-        // Set up audio player
-        audioPlayer.value.src = audioUrl
-        audioPlayer.value.onended = () => {
-          isPlayingAudio.value = null
-        }
-        audioPlayer.value.onerror = (error) => {
-          console.error('Error playing audio:', error)
-          isPlayingAudio.value = null
-        }
-
-        // Play the audio
-        audioPlayer.value.play().catch(error => {
-          console.error('Failed to play audio:', error)
-          isPlayingAudio.value = null
-        })
-
-      } catch (error) {
-        console.error('Error setting up audio playback:', error)
-        isPlayingAudio.value = null
-      }
-    }
-
-    return {
-      score,
-      totalQuestions,
-      totalQuestionCount,
-      percentage,
-      resultsData,
-      allProcessed,
-      processedCount,
-      isPlayingAudio,
-      timeoutOccurred,
-      startNewExam,
-      goHome,
-      formatDuration,
-      formatQuestionType,
-      formatScore,
-      formatCount,
-      playStudentAudio,
-      translate
-    }
+  } catch (error) {
+    console.error('Error setting up audio playback:', error)
+    isPlayingAudio.value = null
   }
 }
 </script>

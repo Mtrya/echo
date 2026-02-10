@@ -183,292 +183,277 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
+import type { ConvertFileResponse } from '@/types'
 
-export default {
-  name: 'FileConverter',
-  emits: ['start-exam', 'go-home'],
-  setup(_, { emit }) {
-    const { translate } = useTranslations()
-    const fileInput = ref(null)
-    const isDragOver = ref(false)
-    const isConverting = ref(false)
-    const selectedFiles = ref([])
-    const conversionResult = ref(null)
-    const generatedExamPath = ref('')
+const emit = defineEmits<{
+  'start-exam': []
+  'go-home': []
+}>()
 
-    // Modal state
-    const showRenameModal = ref(false)
-    const showDeleteModal = ref(false)
-    const currentFileName = ref('')
-    const customExamName = ref('')
-    const examToDelete = ref('')
+const { translate } = useTranslations()
+const fileInput = ref<HTMLInputElement | null>(null)
+const isDragOver = ref<boolean>(false)
+const isConverting = ref<boolean>(false)
+const selectedFiles = ref<File[]>([])
+const conversionResult = ref<ConvertFileResponse | null>(null)
+const generatedExamPath = ref<string>('')
 
-    const triggerFileInput = () => {
-      fileInput.value.click()
+// Modal state
+const showRenameModal = ref<boolean>(false)
+const showDeleteModal = ref<boolean>(false)
+const currentFileName = ref<string>('')
+const customExamName = ref<string>('')
+const examToDelete = ref<string>('')
+
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+const handleDragOver = () => {
+  isDragOver.value = true
+}
+
+const handleDragLeave = () => {
+  isDragOver.value = false
+}
+
+const handleDrop = (e: DragEvent) => {
+  isDragOver.value = false
+  const files = Array.from(e.dataTransfer?.files || [])
+  addFiles(files)
+}
+
+const handleFileSelect = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const files = Array.from(target.files || [])
+  addFiles(files)
+}
+
+const addFiles = (files: File[]) => {
+  // Filter for supported file types
+  const supportedTypes = ['.txt', '.md', '.docx', '.pdf', '.jpg', '.jpeg', '.png']
+  const validFiles = files.filter(file => {
+    const extension = '.' + file.name.split('.').pop()?.toLowerCase()
+    return supportedTypes.includes(extension)
+  })
+
+  if (validFiles.length !== files.length) {
+    console.log(translate('fileConverter.filesSkipped'))
+  }
+
+  selectedFiles.value = [...selectedFiles.value, ...validFiles]
+}
+
+const removeFile = (index: number) => {
+  selectedFiles.value.splice(index, 1)
+}
+
+const clearFiles = () => {
+  selectedFiles.value = []
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const encodeFileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string | null
+      if (result === null) {
+        reject(new Error('Failed to read file'))
+        return
+      }
+      const base64 = result.split(',')[1]
+      if (base64 === undefined) {
+        reject(new Error('Failed to extract base64 data'))
+        return
+      }
+      resolve(base64)
     }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
-    const handleDragOver = (e) => {
-      isDragOver.value = true
-    }
+const convertFiles = async () => {
+  if (selectedFiles.value.length === 0) {
+    return
+  }
 
-    const handleDragLeave = (e) => {
-      isDragOver.value = false
-    }
+  isConverting.value = true
+  conversionResult.value = null
 
-    const handleDrop = (e) => {
-      isDragOver.value = false
-      const files = Array.from(e.dataTransfer.files)
-      addFiles(files)
-    }
+  try {
+    // Encode all files to base64
+    const fileContents = await Promise.all(
+      selectedFiles.value.map(file => encodeFileToBase64(file))
+    )
 
-    const handleFileSelect = (e) => {
-      const files = Array.from(e.target.files)
-      addFiles(files)
-    }
+    const filenames = selectedFiles.value.map(file => file.name)
 
-    const addFiles = (files) => {
-      // Filter for supported file types
-      const supportedTypes = ['.txt', '.md', '.docx', '.pdf', '.jpg', '.jpeg', '.png']
-      const validFiles = files.filter(file => {
-        const extension = '.' + file.name.split('.').pop().toLowerCase()
-        return supportedTypes.includes(extension)
+    // Send to backend
+    const response = await fetch(apiUrl('/convert/file'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filenames: filenames,
+        file_contents: fileContents
       })
+    })
 
-      if (validFiles.length !== files.length) {
-        console.log(translate('fileConverter.filesSkipped'))
-      }
+    const result: ConvertFileResponse = await response.json()
+    conversionResult.value = result
 
-      selectedFiles.value = [...selectedFiles.value, ...validFiles]
+    if (result.success && result.output_filename) {
+      generatedExamPath.value = result.output_filename
+
+      // Show rename modal instead of browser prompt
+      const fullPath = result.output_filename
+      const fileName = fullPath.split('/').pop() // Extract just filename
+      const defaultName = fileName?.replace('.yaml', '') || ''
+
+      currentFileName.value = fileName || ''
+      customExamName.value = defaultName
+      showRenameModal.value = true
     }
 
-    const removeFile = (index) => {
-      selectedFiles.value.splice(index, 1)
+  } catch (error: unknown) {
+    const err = error as Error
+    conversionResult.value = {
+      success: false,
+      message: 'Network error: ' + err.message,
+      raw_error: err.stack
     }
+  } finally {
+    isConverting.value = false
+  }
+}
 
-    const clearFiles = () => {
-      selectedFiles.value = []
-      fileInput.value.value = ''
-    }
+const formatQuestionType = (type: string): string => {
+  const types: Record<string, string> = {
+    'multiple_choice': 'Multiple Choice',
+    'read_aloud': 'Read Aloud',
+    'quick_response': 'Quick Response',
+    'translation': 'Translation'
+  }
+  return types[type] || type
+}
 
-    const formatFileSize = (bytes) => {
-      if (bytes === 0) return '0 Bytes'
-      const k = 1024
-      const sizes = ['Bytes', 'KB', 'MB', 'GB']
-      const i = Math.floor(Math.log(bytes) / Math.log(k))
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-    }
+const goHome = () => {
+  emit('go-home')
+}
 
-    const encodeFileToBase64 = (file) => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result.split(',')[1]) // Remove data URL prefix
-        reader.onerror = reject
-        reader.readAsDataURL(file)
+const resetConverter = () => {
+  conversionResult.value = null
+  generatedExamPath.value = ''
+  clearFiles()
+}
+
+const discardExam = async () => {
+  if (!generatedExamPath.value) {
+    return
+  }
+
+  // Show delete confirmation modal instead of browser confirm
+  const examFilename = generatedExamPath.value.split('/').pop()
+  examToDelete.value = examFilename || ''
+  showDeleteModal.value = true
+}
+
+// Modal methods
+const cancelRename = () => {
+  showRenameModal.value = false
+  currentFileName.value = ''
+  customExamName.value = ''
+}
+
+const confirmRename = async () => {
+  if (!customExamName.value.trim()) {
+    return
+  }
+
+  const oldName = conversionResult.value?.output_filename
+  const newName = customExamName.value.trim() + '.yaml'
+
+  if (!oldName || oldName.split('/').pop() === newName) {
+    // No change needed
+    cancelRename()
+    return
+  }
+
+  try {
+    const renameResponse = await fetch(apiUrl('/rename-exam'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        old_name: oldName,
+        new_name: newName
       })
-    }
+    })
 
-    const convertFiles = async () => {
-      if (selectedFiles.value.length === 0) {
-        return
-      }
-
-      isConverting.value = true
-      conversionResult.value = null
-
-      try {
-        // Encode all files to base64
-        const fileContents = await Promise.all(
-          selectedFiles.value.map(file => encodeFileToBase64(file))
-        )
-
-        const filenames = selectedFiles.value.map(file => file.name)
-
-        // Send to backend
-        const response = await fetch(apiUrl('/convert/file'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            filenames: filenames,
-            file_contents: fileContents
-          })
-        })
-
-        const result = await response.json()
-        conversionResult.value = result
-
-        if (result.success && result.output_filename) {
-          generatedExamPath.value = result.output_filename
-
-          // Show rename modal instead of browser prompt
-          const fullPath = result.output_filename
-          const fileName = fullPath.split('/').pop() // Extract just filename
-          const defaultName = fileName.replace('.yaml', '')
-
-          currentFileName.value = fileName
-          customExamName.value = defaultName
-          showRenameModal.value = true
-        }
-
-      } catch (error) {
-        conversionResult.value = {
-          success: false,
-          message: 'Network error: ' + error.message,
-          raw_error: error.stack
-        }
-      } finally {
-        isConverting.value = false
+    if (renameResponse.ok) {
+      const renameResult = await renameResponse.json()
+      if (renameResult.success && conversionResult.value) {
+        conversionResult.value.output_filename = renameResult.new_filename
+        generatedExamPath.value = renameResult.new_filename
       }
     }
+  } catch (renameError) {
+    console.warn(translate('fileConverter.failedToRename'), renameError)
+  } finally {
+    cancelRename()
+  }
+}
 
-    const formatQuestionType = (type) => {
-      const types = {
-        'multiple_choice': 'Multiple Choice',
-        'read_aloud': 'Read Aloud',
-        'quick_response': 'Quick Response',
-        'translation': 'Translation'
-      }
-      return types[type] || type
+const cancelDelete = () => {
+  showDeleteModal.value = false
+  examToDelete.value = ''
+}
+
+const confirmDelete = async () => {
+  const examFilename = examToDelete.value
+
+  try {
+    const response = await fetch(apiUrl('/delete-exam'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        exam_filename: examFilename
+      })
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      resetConverter()
+    } else {
+      // Show error in a more elegant way - could add a toast notification here
+      console.error(translate('fileConverter.failedToDiscard'), result.message)
     }
-
-    const goHome = () => {
-      emit('go-home')
-    }
-
-    const resetConverter = () => {
-      conversionResult.value = null
-      generatedExamPath.value = ''
-      clearFiles()
-    }
-
-    const discardExam = async () => {
-      if (!generatedExamPath.value) {
-        return
-      }
-
-      // Show delete confirmation modal instead of browser confirm
-      const examFilename = generatedExamPath.value.split('/').pop()
-      examToDelete.value = examFilename
-      showDeleteModal.value = true
-    }
-
-    // Modal methods
-    const cancelRename = () => {
-      showRenameModal.value = false
-      currentFileName.value = ''
-      customExamName.value = ''
-    }
-
-    const confirmRename = async () => {
-      if (!customExamName.value.trim()) {
-        return
-      }
-
-      const oldName = conversionResult.value.output_filename
-      const newName = customExamName.value.trim() + '.yaml'
-
-      if (oldName.split('/').pop() === newName) {
-        // No change needed
-        cancelRename()
-        return
-      }
-
-      try {
-        const renameResponse = await fetch(apiUrl('/rename-exam'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            old_name: oldName,
-            new_name: newName
-          })
-        })
-
-        if (renameResponse.ok) {
-          const renameResult = await renameResponse.json()
-          if (renameResult.success) {
-            conversionResult.value.output_filename = renameResult.new_filename
-            generatedExamPath.value = renameResult.new_filename
-          }
-        }
-      } catch (renameError) {
-        console.warn(translate('fileConverter.failedToRename'), renameError)
-      } finally {
-        cancelRename()
-      }
-    }
-
-    const cancelDelete = () => {
-      showDeleteModal.value = false
-      examToDelete.value = ''
-    }
-
-    const confirmDelete = async () => {
-      const examFilename = examToDelete.value
-
-      try {
-        const response = await fetch(apiUrl('/delete-exam'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            exam_filename: examFilename
-          })
-        })
-
-        const result = await response.json()
-
-        if (result.success) {
-          resetConverter()
-        } else {
-          // Show error in a more elegant way - could add a toast notification here
-          console.error(translate('fileConverter.failedToDiscard'), result.message)
-        }
-      } catch (error) {
-        console.error('Error discarding exam:', error)
-        // Network errors logged to console instead of showing alert
-      } finally {
-        cancelDelete()
-      }
-    }
-
-    return {
-      fileInput,
-      isDragOver,
-      isConverting,
-      selectedFiles,
-      conversionResult,
-      showRenameModal,
-      showDeleteModal,
-      currentFileName,
-      customExamName,
-      examToDelete,
-      translate,
-      triggerFileInput,
-      handleDragOver,
-      handleDragLeave,
-      handleDrop,
-      handleFileSelect,
-      removeFile,
-      clearFiles,
-      formatFileSize,
-      convertFiles,
-      formatQuestionType,
-      goHome,
-      resetConverter,
-      discardExam,
-      cancelRename,
-      confirmRename,
-      cancelDelete,
-      confirmDelete
-    }
+  } catch (error) {
+    console.error('Error discarding exam:', error)
+    // Network errors logged to console instead of showing alert
+  } finally {
+    cancelDelete()
   }
 }
 </script>

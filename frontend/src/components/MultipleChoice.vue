@@ -1,14 +1,14 @@
 <template>
-  <div class="multiple-choice">
+  <div v-if="props.currentQuestion" class="multiple-choice">
     <!-- Question Phase -->
     <div class="question-phase">
       <div class="question-text">
-        {{ currentQuestion.text }}
+        {{ props.currentQuestion.text }}
       </div>
 
-      <div class="options-grid">
+      <div v-if="props.currentQuestion.options" class="options-grid">
         <div
-          v-for="option in currentQuestion.options"
+          v-for="option in props.currentQuestion.options"
           :key="option"
           class="option-item"
           :class="{ selected: selectedOption === option }"
@@ -37,14 +37,14 @@
     </div>
 
     <!-- Auto-submit Phase -->
-    <div v-if="phase === 'auto-submit'" class="auto-submit-phase">
+    <div v-if="phase === 'auto-submit' && props.currentQuestion" class="auto-submit-phase">
       <div class="question-text">
-        {{ currentQuestion.text }}
+        {{ props.currentQuestion.text }}
       </div>
 
-      <div class="options-grid">
+      <div v-if="props.currentQuestion.options" class="options-grid">
         <div
-          v-for="option in currentQuestion.options"
+          v-for="option in props.currentQuestion.options"
           :key="option"
           class="option-item"
           :class="{ selected: selectedOption === option }"
@@ -60,156 +60,142 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
+import type { Question } from '@/types'
 
-export default {
-  name: 'MultipleChoice',
-  props: {
-    sessionId: {
-      type: String,
-      required: true
-    },
-    currentQuestion: {
-      type: Object,
-      required: true
+interface Props {
+  sessionId: string
+  currentQuestion: Question | null
+}
+
+interface Emits {
+  (e: 'complete', result: { sessionId: string; questionIndex: number; success: boolean; error?: string }): void
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
+
+const { translate } = useTranslations()
+
+// Phase management
+const phase = ref<'question' | 'auto-submit'>('question')
+
+// Timer and selection
+const timeRemaining = ref(0)
+const selectedOption = ref<string | null>(null)
+
+// Timer reference
+let questionTimer: ReturnType<typeof setInterval> | null = null
+
+// Initialize on component mount
+onMounted(async () => {
+  await initializeQuestion()
+})
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  cleanup()
+})
+
+// Initialize the question flow
+const initializeQuestion = async (): Promise<void> => {
+  try {
+    // Start question phase directly
+    startQuestionPhase()
+  } catch (error) {
+    console.error('Failed to initialize question:', error)
+    startQuestionPhase()
+  }
+}
+
+// Start question phase
+const startQuestionPhase = (): void => {
+  phase.value = 'question'
+  timeRemaining.value = props.currentQuestion?.time_limit || 30
+  selectedOption.value = null
+
+  // Start countdown timer
+  questionTimer = setInterval(() => {
+    timeRemaining.value--
+
+    if (timeRemaining.value <= 0) {
+      autoSubmit()
     }
-  },
-  emits: ['complete'],
-  setup(props, { emit }) {
-    // Translation support
-    const { translate } = useTranslations()
+  }, 1000)
+}
 
-    // Phase management
-    const phase = ref('question') // 'question', 'auto-submit'
+// Select an option
+const selectOption = (option: string): void => {
+  selectedOption.value = option
+}
 
-    // Timer and selection
-    const timeRemaining = ref(0)
-    const selectedOption = ref(null)
+// Submit answer manually
+const submitAnswer = (): void => {
+  if (!selectedOption.value) return
 
-    // Timer reference
-    let questionTimer = null
+  cleanup()
+  submitToBackend(selectedOption.value)
+}
 
-    // Initialize on component mount
-    onMounted(async () => {
-      await initializeQuestion()
+// Auto-submit when time runs out
+const autoSubmit = (): void => {
+  phase.value = 'auto-submit'
+  cleanup()
+
+  // Submit with empty string if no selection
+  const answer = selectedOption.value || ''
+
+  // Brief delay to show auto-submit message
+  setTimeout(() => {
+    submitToBackend(answer)
+  }, 1000)
+}
+
+// Submit answer to backend
+const submitToBackend = async (answerText: string): Promise<void> => {
+  try {
+    const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        answer_text: answerText
+      })
     })
 
-    // Cleanup on component unmount
-    onUnmounted(() => {
-      cleanup()
+    if (response.ok) {
+      console.log('Answer submitted successfully:', answerText)
+
+      // Immediately emit completion event
+      emit('complete', {
+        sessionId: props.sessionId,
+        questionIndex: props.currentQuestion?.question_index ?? 0,
+        success: true
+      })
+    } else {
+      throw new Error('Failed to submit answer')
+    }
+
+  } catch (error) {
+    console.error('Failed to submit answer:', error)
+    emit('complete', {
+      sessionId: props.sessionId,
+      questionIndex: props.currentQuestion?.question_index ?? 0,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     })
+  }
+}
 
-    // Initialize the question flow
-    const initializeQuestion = async () => {
-      try {
-        // Start question phase directly
-        startQuestionPhase()
-      } catch (error) {
-        console.error('Failed to initialize question:', error)
-        startQuestionPhase()
-      }
-    }
-
-    
-    // Start question phase
-    const startQuestionPhase = () => {
-      phase.value = 'question'
-      timeRemaining.value = props.currentQuestion.time_limit || 30
-      selectedOption.value = null
-
-      // Start countdown timer
-      questionTimer = setInterval(() => {
-        timeRemaining.value--
-
-        if (timeRemaining.value <= 0) {
-          autoSubmit()
-        }
-      }, 1000)
-    }
-
-    // Select an option
-    const selectOption = (option) => {
-      selectedOption.value = option
-    }
-
-    // Submit answer manually
-    const submitAnswer = () => {
-      if (!selectedOption.value) return
-
-      cleanup()
-      submitToBackend(selectedOption.value)
-    }
-
-    // Auto-submit when time runs out
-    const autoSubmit = () => {
-      phase.value = 'auto-submit'
-      cleanup()
-
-      // Submit with empty string if no selection
-      const answer = selectedOption.value || ''
-
-      // Brief delay to show auto-submit message
-      setTimeout(() => {
-        submitToBackend(answer)
-      }, 1000)
-    }
-
-    // Submit answer to backend
-    const submitToBackend = async (answerText) => {
-      try {
-        const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            answer_text: answerText
-          })
-        })
-
-        if (response.ok) {
-          console.log('Answer submitted successfully:', answerText)
-
-          // Immediately emit completion event
-          emit('complete', {
-            sessionId: props.sessionId,
-            questionIndex: props.currentQuestion.question_index,
-            success: true
-          })
-        } else {
-          throw new Error('Failed to submit answer')
-        }
-
-      } catch (error) {
-        console.error('Failed to submit answer:', error)
-        emit('complete', {
-          sessionId: props.sessionId,
-          questionIndex: props.currentQuestion.question_index,
-          success: false,
-          error: error.message
-        })
-      }
-    }
-
-    // Cleanup resources
-    const cleanup = () => {
-      if (questionTimer) {
-        clearInterval(questionTimer)
-        questionTimer = null
-      }
-    }
-
-    return {
-      phase,
-      timeRemaining,
-      selectedOption,
-      selectOption,
-      submitAnswer,
-      translate
-    }
+// Cleanup resources
+const cleanup = (): void => {
+  if (questionTimer) {
+    clearInterval(questionTimer)
+    questionTimer = null
   }
 }
 </script>

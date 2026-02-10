@@ -65,176 +65,164 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
 
-export default {
-  name: 'HomePage',
-  emits: ['start-exam', 'file-converter', 'open-settings'], // Declare that this component can emit events
-  setup(_, { emit }) {
-    // Translation support
-    const { translate } = useTranslations()
+// Emits definition
+const emit = defineEmits<{
+  'start-exam': [data: { sessionId: string; examName: string }]
+  'file-converter': []
+  'open-settings': []
+}>()
 
-    // State management
-    const showExamList = ref(false)
-    const showAlert = ref(false)
-    const alertMessage = ref('')
-    const selectedExam = ref(null)
-    const availableExams = ref([])
-    const completedExams = ref([])
-    const showCompletedExams = ref(false)
-    const hasApiKey = ref(false)
+// Translation support
+const { translate } = useTranslations()
 
-    // Load available exams and check API key when component mounts
-    onMounted(async () => {
-      await checkApiKeyStatus()
-      await loadCompletedExams()
-      await loadExams()
-    })
+// State management with proper types
+const showExamList = ref<boolean>(false)
+const showAlert = ref<boolean>(false)
+const alertMessage = ref<string>('')
+const selectedExam = ref<string | null>(null)
+const availableExams = ref<string[]>([])
+const completedExams = ref<string[]>([])
+const showCompletedExams = ref<boolean>(false)
+const hasApiKey = ref<boolean>(false)
 
-    // Check API key status
-    const checkApiKeyStatus = async () => {
-      try {
-        const response = await fetch(apiUrl('/api-key-status'))
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        const data = await response.json()
-        hasApiKey.value = data.has_api_key
-      } catch (error) {
-        console.error('Failed to check API key status:', error)
-        hasApiKey.value = false
-        // Don't show alert for this error - it's expected when backend isn't running
-      }
+// Load available exams and check API key when component mounts
+onMounted(async () => {
+  await checkApiKeyStatus()
+  await loadCompletedExams()
+  await loadExams()
+})
+
+// Check API key status
+const checkApiKeyStatus = async (): Promise<void> => {
+  try {
+    const response = await fetch(apiUrl('/api-key-status'))
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
-
-    // Refresh API key status (exposed to parent)
-    const refreshApiKeyStatus = async () => {
-      await checkApiKeyStatus()
-    }
-
-    // Handle toggle change event
-    const handleToggleChange = async () => {
-      await loadExams()
-    }
-
-    // Load completed exams
-    const loadCompletedExams = async () => {
-      try {
-        const response = await fetch(apiUrl('/exams/completed'))
-        const data = await response.json()
-        completedExams.value = data.completed_exams || []
-      } catch (error) {
-        console.error('Failed to load completed exams:', error)
-        completedExams.value = []
-      }
-    }
-
-    // API call to get exam list
-    const loadExams = async () => {
-      try {
-        const includeCompleted = showCompletedExams.value
-        const response = await fetch(apiUrl(`/exams/list?include_completed=${includeCompleted}`))
-        const data = await response.json()
-        availableExams.value = data.exams || []
-      } catch (error) {
-        console.error('Failed to load exams:', error)
-        showAlert.value = true
-        alertMessage.value = 'Failed to load exam list'
-      }
-    }
-
-    // Select an exam from the list
-    const selectExam = (exam) => {
-      selectedExam.value = exam
-      showExamList.value = false
-    }
-
-    // Open file converter
-    const openFileConverter = () => {
-      if (!hasApiKey.value) {
-        showAlert.value = true
-        alertMessage.value = 'Please configure API key in settings first!'
-        return
-      }
-      emit('file-converter')
-    }
-
-    // Handle exam list button click
-    const handleExamListClick = () => {
-      if (!hasApiKey.value) {
-        showAlert.value = true
-        alertMessage.value = 'Please configure API key in settings first!'
-        return
-      }
-      showExamList.value = true
-    }
-
-    // Start the exam
-    const startExam = async () => {
-      if (!selectedExam.value) {
-        showAlert.value = true
-        alertMessage.value = 'Please select an exam first!'
-        return
-      }
-
-      if (!hasApiKey.value) {
-        showAlert.value = true
-        alertMessage.value = 'Please configure API key in settings first!'
-        return
-      }
-
-      try {
-        const response = await fetch(apiUrl('/session/start'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            exam_file_path: selectedExam.value
-          })
-        })
-
-        const data = await response.json()
-
-        if (data.session_id) {
-          // Emit event to parent component with session data
-          emit('start-exam', {
-            sessionId: data.session_id,
-            examName: selectedExam.value
-          })
-        } else {
-          showAlert.value = true
-          alertMessage.value = 'Failed to start exam session'
-        }
-      } catch (error) {
-        console.error('Failed to start exam:', error)
-        showAlert.value = true
-        alertMessage.value = 'Failed to start exam session'
-      }
-    }
-
-    return {
-      showExamList,
-      showAlert,
-      alertMessage,
-      selectedExam,
-      availableExams,
-      completedExams,
-      showCompletedExams,
-      hasApiKey,
-      translate,
-      selectExam,
-      openFileConverter,
-      handleExamListClick,
-      startExam,
-      refreshApiKeyStatus,
-      handleToggleChange
-    }
+    const data = await response.json()
+    hasApiKey.value = data.has_api_key
+  } catch (error) {
+    console.error('Failed to check API key status:', error)
+    hasApiKey.value = false
+    // Don't show alert for this error - it's expected when backend isn't running
   }
 }
+
+// Refresh API key status (exposed to parent)
+const refreshApiKeyStatus = async (): Promise<void> => {
+  await checkApiKeyStatus()
+}
+
+// Handle toggle change event
+const handleToggleChange = async (): Promise<void> => {
+  await loadExams()
+}
+
+// Load completed exams
+const loadCompletedExams = async (): Promise<void> => {
+  try {
+    const response = await fetch(apiUrl('/exams/completed'))
+    const data = await response.json()
+    completedExams.value = data.completed_exams || []
+  } catch (error) {
+    console.error('Failed to load completed exams:', error)
+    completedExams.value = []
+  }
+}
+
+// API call to get exam list
+const loadExams = async (): Promise<void> => {
+  try {
+    const includeCompleted = showCompletedExams.value
+    const response = await fetch(apiUrl(`/exams/list?include_completed=${includeCompleted}`))
+    const data = await response.json()
+    availableExams.value = data.exams || []
+  } catch (error) {
+    console.error('Failed to load exams:', error)
+    showAlert.value = true
+    alertMessage.value = 'Failed to load exam list'
+  }
+}
+
+// Select an exam from the list
+const selectExam = (exam: string): void => {
+  selectedExam.value = exam
+  showExamList.value = false
+}
+
+// Open file converter
+const openFileConverter = (): void => {
+  if (!hasApiKey.value) {
+    showAlert.value = true
+    alertMessage.value = 'Please configure API key in settings first!'
+    return
+  }
+  emit('file-converter')
+}
+
+// Handle exam list button click
+const handleExamListClick = (): void => {
+  if (!hasApiKey.value) {
+    showAlert.value = true
+    alertMessage.value = 'Please configure API key in settings first!'
+    return
+  }
+  showExamList.value = true
+}
+
+// Start the exam
+const startExam = async (): Promise<void> => {
+  if (!selectedExam.value) {
+    showAlert.value = true
+    alertMessage.value = 'Please select an exam first!'
+    return
+  }
+
+  if (!hasApiKey.value) {
+    showAlert.value = true
+    alertMessage.value = 'Please configure API key in settings first!'
+    return
+  }
+
+  try {
+    const response = await fetch(apiUrl('/session/start'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        exam_file_path: selectedExam.value
+      })
+    })
+
+    const data = await response.json()
+
+    if (data.session_id) {
+      // Emit event to parent component with session data
+      emit('start-exam', {
+        sessionId: data.session_id,
+        examName: selectedExam.value
+      })
+    } else {
+      showAlert.value = true
+      alertMessage.value = 'Failed to start exam session'
+    }
+  } catch (error) {
+    console.error('Failed to start exam:', error)
+    showAlert.value = true
+    alertMessage.value = 'Failed to start exam session'
+  }
+}
+
+// Expose refreshApiKeyStatus to parent component
+defineExpose({
+  refreshApiKeyStatus
+})
 </script>
 
 <style scoped>

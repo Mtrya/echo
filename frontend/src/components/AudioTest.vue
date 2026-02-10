@@ -63,322 +63,300 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
-import Mp3Recorder from '../utils/mp3Recorder.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
+import { Mp3Recorder } from '@/utils/mp3Recorder'
 
-export default {
-  name: 'AudioTest',
-  props: {
-    sessionId: {
-      type: String,
-      required: true
-    }
-  },
-  emits: ['complete'],
-  setup(props, { emit }) {
-    // Translation support
-    const { translate } = useTranslations()
+interface Props {
+  sessionId: string
+}
 
-    // Audio elements
-    const testAudioPlayer = ref(null)
-    const recordedAudioPlayer = ref(null)
-    
-    // State management
-    const isPlaying = ref(false)
-    const isRecording = ref(false)
-    const isPlayingRecording = ref(false)
-    const recordedAudio = ref(null)
-    const recordingTime = ref(0)
-    const recordingInterval = ref(null)
-    
-    // MP3 recorder
-    let mp3Recorder = null
+interface Emits {
+  (e: 'complete', result: { sessionId: string; audioTestPassed: boolean }): void
+}
 
-    // Audio context for test beep
-    let testAudioContext = null
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
-    // Initialize audio context on component mount
-    onMounted(async () => {
-      await initializeAudio()
-      // Start checking session status
-      checkSessionStatus()
-    })
+const { translate } = useTranslations()
 
-    // Cleanup on component unmount
-    onUnmounted(() => {
-      cleanup()
-    })
+// Audio elements
+const testAudioPlayer = ref<HTMLAudioElement | null>(null)
+const recordedAudioPlayer = ref<HTMLAudioElement | null>(null)
 
-    // Initialize audio permissions and setup
-    const initializeAudio = async () => {
-      try {
-        // Check browser support
-        if (!Mp3Recorder.isSupported()) {
-          throw new Error('MP3 recording is not supported in this browser')
-        }
+// State management
+const isPlaying = ref(false)
+const isRecording = ref(false)
+const isPlayingRecording = ref(false)
+const recordedAudio = ref<string | null>(null)
+const recordingTime = ref(0)
+const recordingInterval = ref<ReturnType<typeof setInterval> | null>(null)
 
-        // Create new MP3 recorder instance
-        mp3Recorder = new Mp3Recorder()
+// MP3 recorder
+let mp3Recorder: Mp3Recorder | null = null
 
-        console.log('MP3 recorder initialized successfully')
-      } catch (error) {
-        console.error('Failed to initialize MP3 recorder:', error)
-        alert(translate('audioTest.microphoneAccess'))
-      }
+// Audio context for test beep
+let testAudioContext: AudioContext | null = null
+
+// Audio generation status
+const audioGenerationStatus = ref<'unknown' | 'generating' | 'completed'>('unknown')
+const isCheckingStatus = ref(false)
+
+// Initialize audio context on component mount
+onMounted(async () => {
+  await initializeAudio()
+  // Start checking session status
+  checkSessionStatus()
+})
+
+// Cleanup on component unmount
+onUnmounted(() => {
+  cleanup()
+})
+
+// Initialize audio permissions and setup
+const initializeAudio = async (): Promise<void> => {
+  try {
+    // Check browser support
+    if (!Mp3Recorder.isSupported()) {
+      throw new Error('MP3 recording is not supported in this browser')
     }
 
-    // Play test audio using pre-recorded voice file
-    const playTestAudio = async () => {
-      if (isPlaying.value) return
+    // Create new MP3 recorder instance
+    mp3Recorder = new Mp3Recorder()
 
-      try {
-        isPlaying.value = true
+    console.log('MP3 recorder initialized successfully')
+  } catch (error) {
+    console.error('Failed to initialize MP3 recorder:', error)
+    alert(translate('audioTest.microphoneAccess'))
+  }
+}
 
-        if (testAudioPlayer.value) {
-          testAudioPlayer.value.src = apiUrl('/audio_cache/tts/audio-test.mp3')
-          testAudioPlayer.value.onended = () => {
-            isPlaying.value = false
-          }
-          await testAudioPlayer.value.play()
-        }
-      } catch (error) {
-        console.error('Failed to play test audio:', error)
-        // Fallback to beep if audio file fails
-        playBeepSound()
+// Play test audio using pre-recorded voice file
+const playTestAudio = async (): Promise<void> => {
+  if (isPlaying.value) return
+
+  try {
+    isPlaying.value = true
+
+    if (testAudioPlayer.value) {
+      testAudioPlayer.value.src = apiUrl('/audio_cache/tts/audio-test.mp3')
+      testAudioPlayer.value.onended = () => {
         isPlaying.value = false
       }
+      await testAudioPlayer.value.play()
     }
+  } catch (error) {
+    console.error('Failed to play test audio:', error)
+    // Fallback to beep if audio file fails
+    playBeepSound()
+    isPlaying.value = false
+  }
+}
 
-    // Fallback beep sound
-    const playBeepSound = () => {
-      try {
-        testAudioContext = new (window.AudioContext || window.webkitAudioContext)()
-        const oscillator = testAudioContext.createOscillator()
-        const gainNode = testAudioContext.createGain()
+// Fallback beep sound
+const playBeepSound = (): void => {
+  try {
+    testAudioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = testAudioContext.createOscillator()
+    const gainNode = testAudioContext.createGain()
 
-        oscillator.connect(gainNode)
-        gainNode.connect(testAudioContext.destination)
+    oscillator.connect(gainNode)
+    gainNode.connect(testAudioContext.destination)
 
-        oscillator.frequency.setValueAtTime(800, testAudioContext.currentTime)
-        oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(800, testAudioContext.currentTime)
+    oscillator.type = 'sine'
 
-        gainNode.gain.setValueAtTime(0.3, testAudioContext.currentTime)
-        gainNode.gain.exponentialRampToValueAtTime(0.01, testAudioContext.currentTime + 1)
+    gainNode.gain.setValueAtTime(0.3, testAudioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, testAudioContext.currentTime + 1)
 
-        oscillator.start(testAudioContext.currentTime)
-        oscillator.stop(testAudioContext.currentTime + 1)
+    oscillator.start(testAudioContext.currentTime)
+    oscillator.stop(testAudioContext.currentTime + 1)
 
-        setTimeout(() => {
-          if (testAudioContext) {
-            testAudioContext.close()
-            testAudioContext = null
-          }
-        }, 1000)
-      } catch (error) {
-        console.error('Failed to play beep sound:', error)
-      }
-    }
-
-    // Toggle recording on/off
-    const toggleRecording = async () => {
-      if (isRecording.value) {
-        // Stop recording
-        if (mp3Recorder) {
-          try {
-            const mp3Blob = await mp3Recorder.stop()
-            recordedAudio.value = URL.createObjectURL(mp3Blob)
-            mp3Recorder = null  // Reset for next recording
-
-            // Stop recording timer
-            if (recordingInterval.value) {
-              clearInterval(recordingInterval.value)
-              recordingInterval.value = null
-            }
-            recordingTime.value = 0
-
-            // Auto-play the recording after stopping
-            setTimeout(() => {
-              playRecordedAudio()
-            }, 500)
-          } catch (error) {
-            console.error('Failed to stop MP3 recording:', error)
-          }
-        }
-        isRecording.value = false
-      } else {
-        // Start recording
-        if (mp3Recorder) {
-          try {
-            await mp3Recorder.start()
-            isRecording.value = true
-            startRecordingTimer()
-          } catch (error) {
-            console.error('Failed to start MP3 recording:', error)
-          }
-        } else {
-          // Create new recorder instance
-          mp3Recorder = new Mp3Recorder()
-          try {
-            await mp3Recorder.start()
-            isRecording.value = true
-            startRecordingTimer()
-          } catch (error) {
-            console.error('Failed to start MP3 recording:', error)
-          }
-        }
-      }
-    }
-
-    // Start recording timer
-    const startRecordingTimer = () => {
-      recordingTime.value = 0
-      recordingInterval.value = setInterval(() => {
-        recordingTime.value++
-      }, 1000)
-    }
-
-    // Format time as MM:SS
-    const formatTime = (seconds) => {
-      const mins = Math.floor(seconds / 60)
-      const secs = seconds % 60
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    }
-
-    // Generate waveform height for visual effect
-    const getWaveHeight = (index) => {
-      if (!isRecording.value) return 20
-      // Create a simple wave effect
-      const base = 30
-      const variation = Math.sin((Date.now() / 200) + (index * 0.5)) * 20
-      return Math.max(20, Math.min(80, base + variation))
-    }
-
-    // Play the recorded audio
-    const playRecordedAudio = () => {
-      if (!recordedAudio.value || isPlayingRecording.value) return
-      
-      try {
-        isPlayingRecording.value = true
-        
-        if (recordedAudioPlayer.value) {
-          recordedAudioPlayer.value.src = recordedAudio.value
-          recordedAudioPlayer.value.onended = () => {
-            isPlayingRecording.value = false
-          }
-          recordedAudioPlayer.value.play()
-        }
-      } catch (error) {
-        console.error('Failed to play recorded audio:', error)
-        isPlayingRecording.value = false
-      }
-    }
-
-    // Cleanup resources
-    const cleanup = () => {
-      // Clean up test audio context
+    setTimeout(() => {
       if (testAudioContext) {
         testAudioContext.close()
         testAudioContext = null
       }
+    }, 1000)
+  } catch (error) {
+    console.error('Failed to play beep sound:', error)
+  }
+}
 
-      // Clean up MP3 recorder
-      if (mp3Recorder) {
-        try {
-          mp3Recorder._cleanup()
-        } catch (error) {
-          console.error('Error cleaning up MP3 recorder:', error)
-        }
-        mp3Recorder = null
-      }
-
-      // Clean up recorded audio URL
-      if (recordedAudio.value) {
-        URL.revokeObjectURL(recordedAudio.value)
-        recordedAudio.value = null
-      }
-
-      // Clean up recording timer
-      if (recordingInterval.value) {
-        clearInterval(recordingInterval.value)
-        recordingInterval.value = null
-      }
-    }
-
-    // Audio generation status
-    const audioGenerationStatus = ref('unknown') // 'unknown', 'generating', 'completed'
-    const isCheckingStatus = ref(false)
-
-    // Check session status (unified endpoint)
-    const checkSessionStatus = async () => {
-      if (isCheckingStatus.value) return
-
+// Toggle recording on/off
+const toggleRecording = async (): Promise<void> => {
+  if (isRecording.value) {
+    // Stop recording
+    if (mp3Recorder) {
       try {
-        isCheckingStatus.value = true
-        const response = await fetch(apiUrl(`/session/${props.sessionId}/audio-status`))
-        const data = await response.json()
+        const mp3Blob = await mp3Recorder.stop()
+        recordedAudio.value = URL.createObjectURL(mp3Blob)
+        mp3Recorder = null  // Reset for next recording
 
-        if (data.audio_generation === 'completed') {
-          audioGenerationStatus.value = 'completed'
-        } else if (data.audio_generation === 'generating') {
-          audioGenerationStatus.value = 'generating'
-          // Continue checking after a delay
-          setTimeout(checkSessionStatus, 2000)
-        } else {
-          audioGenerationStatus.value = 'unknown'
+        // Stop recording timer
+        if (recordingInterval.value) {
+          clearInterval(recordingInterval.value)
+          recordingInterval.value = null
         }
+        recordingTime.value = 0
+
+        // Auto-play the recording after stopping
+        setTimeout(() => {
+          playRecordedAudio()
+        }, 500)
       } catch (error) {
-        console.error('Failed to check session status:', error)
-        audioGenerationStatus.value = 'unknown'
-      } finally {
-        isCheckingStatus.value = false
+        console.error('Failed to stop MP3 recording:', error)
       }
     }
-
-    // Start the exam (navigate to first question)
-    const startExam = () => {
-      console.log('AudioTest: Starting exam, emitting complete event')
-      emit('complete', {
-        sessionId: props.sessionId,
-        audioTestPassed: true
-      })
-    }
-
-    // Check if start button should be enabled
-    const canStartExam = () => {
-      return audioGenerationStatus.value === 'completed' || audioGenerationStatus.value === 'unknown'
-    }
-
-    // Get start button text
-    const getStartButtonText = () => {
-      if (audioGenerationStatus.value === 'generating') {
-        return translate('audioTest.generatingAudio')
+    isRecording.value = false
+  } else {
+    // Start recording
+    if (mp3Recorder) {
+      try {
+        await mp3Recorder.start()
+        isRecording.value = true
+        startRecordingTimer()
+      } catch (error) {
+        console.error('Failed to start MP3 recording:', error)
       }
-      return translate('audioTest.startExam')
-    }
-
-    return {
-      testAudioPlayer,
-      recordedAudioPlayer,
-      isPlaying,
-      isRecording,
-      isPlayingRecording,
-      recordedAudio,
-      recordingTime,
-      audioGenerationStatus,
-      playTestAudio,
-      toggleRecording,
-      playRecordedAudio,
-      startExam,
-      canStartExam,
-      getStartButtonText,
-      formatTime,
-      getWaveHeight,
-      translate
+    } else {
+      // Create new recorder instance
+      mp3Recorder = new Mp3Recorder()
+      try {
+        await mp3Recorder.start()
+        isRecording.value = true
+        startRecordingTimer()
+      } catch (error) {
+        console.error('Failed to start MP3 recording:', error)
+      }
     }
   }
+}
+
+// Start recording timer
+const startRecordingTimer = (): void => {
+  recordingTime.value = 0
+  recordingInterval.value = setInterval(() => {
+    recordingTime.value++
+  }, 1000)
+}
+
+// Format time as MM:SS
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+// Generate waveform height for visual effect
+const getWaveHeight = (index: number): number => {
+  if (!isRecording.value) return 20
+  // Create a simple wave effect
+  const base = 30
+  const variation = Math.sin((Date.now() / 200) + (index * 0.5)) * 20
+  return Math.max(20, Math.min(80, base + variation))
+}
+
+// Play the recorded audio
+const playRecordedAudio = (): void => {
+  if (!recordedAudio.value || isPlayingRecording.value) return
+
+  try {
+    isPlayingRecording.value = true
+
+    if (recordedAudioPlayer.value) {
+      recordedAudioPlayer.value.src = recordedAudio.value
+      recordedAudioPlayer.value.onended = () => {
+        isPlayingRecording.value = false
+      }
+      recordedAudioPlayer.value.play()
+    }
+  } catch (error) {
+    console.error('Failed to play recorded audio:', error)
+    isPlayingRecording.value = false
+  }
+}
+
+// Cleanup resources
+const cleanup = (): void => {
+  // Clean up test audio context
+  if (testAudioContext) {
+    testAudioContext.close()
+    testAudioContext = null
+  }
+
+  // Clean up MP3 recorder
+  if (mp3Recorder) {
+    try {
+      mp3Recorder.cleanup()
+    } catch (error) {
+      console.error('Error cleaning up MP3 recorder:', error)
+    }
+    mp3Recorder = null
+  }
+
+  // Clean up recorded audio URL
+  if (recordedAudio.value) {
+    URL.revokeObjectURL(recordedAudio.value)
+    recordedAudio.value = null
+  }
+
+  // Clean up recording timer
+  if (recordingInterval.value) {
+    clearInterval(recordingInterval.value)
+    recordingInterval.value = null
+  }
+}
+
+// Check session status (unified endpoint)
+const checkSessionStatus = async (): Promise<void> => {
+  if (isCheckingStatus.value) return
+
+  try {
+    isCheckingStatus.value = true
+    const response = await fetch(apiUrl(`/session/${props.sessionId}/audio-status`))
+    const data = await response.json()
+
+    if (data.audio_generation === 'completed') {
+      audioGenerationStatus.value = 'completed'
+    } else if (data.audio_generation === 'generating') {
+      audioGenerationStatus.value = 'generating'
+      // Continue checking after a delay
+      setTimeout(checkSessionStatus, 2000)
+    } else {
+      audioGenerationStatus.value = 'unknown'
+    }
+  } catch (error) {
+    console.error('Failed to check session status:', error)
+    audioGenerationStatus.value = 'unknown'
+  } finally {
+    isCheckingStatus.value = false
+  }
+}
+
+// Start the exam (navigate to first question)
+const startExam = (): void => {
+  console.log('AudioTest: Starting exam, emitting complete event')
+  emit('complete', {
+    sessionId: props.sessionId,
+    audioTestPassed: true
+  })
+}
+
+// Check if start button should be enabled
+const canStartExam = (): boolean => {
+  return audioGenerationStatus.value === 'completed' || audioGenerationStatus.value === 'unknown'
+}
+
+// Get start button text
+const getStartButtonText = (): string => {
+  if (audioGenerationStatus.value === 'generating') {
+    return translate('audioTest.generatingAudio')
+  }
+  return translate('audioTest.startExam')
 }
 </script>
 

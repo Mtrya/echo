@@ -115,247 +115,239 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useTranslations } from './composables/useTranslations.js'
-import { apiUrl, setApiBaseUrl } from './utils/api.js'
-import HomePage from './components/HomePage.vue'
-import AudioTest from './components/AudioTest.vue'
-import InstructionPage from './components/InstructionPage.vue'
-import ReadAloud from './components/ReadAloud.vue'
-import MultipleChoice from './components/MultipleChoice.vue'
-import QuickResponse from './components/QuickResponse.vue'
-import Translation from './components/Translation.vue'
-import Results from './components/Results.vue'
-import FileConverter from './components/FileConverter.vue'
-import Settings from './components/Settings.vue'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl, setApiBaseUrl } from '@/utils/api'
+import HomePage from '@/components/HomePage.vue'
+import AudioTest from '@/components/AudioTest.vue'
+import InstructionPage from '@/components/InstructionPage.vue'
+import ReadAloud from '@/components/ReadAloud.vue'
+import MultipleChoice from '@/components/MultipleChoice.vue'
+import QuickResponse from '@/components/QuickResponse.vue'
+import Translation from '@/components/Translation.vue'
+import Results from '@/components/Results.vue'
+import FileConverter from '@/components/FileConverter.vue'
+import Settings from '@/components/Settings.vue'
+import type { Question, Instruction, GetQuestionResponse, StartSessionResponse, AppConfig } from '@/types'
 
-export default {
-  name: 'App',
-  components: {
-    HomePage,
-    AudioTest,
-    InstructionPage,
-    ReadAloud,
-    MultipleChoice,
-    QuickResponse,
-    Translation,
-    Results,
-    FileConverter,
-    Settings
-  },
-  setup() {
-    // Translation support
-    const { translate } = useTranslations()
+type PageType = 'home' | 'file-converter' | 'audio-test' | 'instruction' | 'read-aloud' | 'multiple-choice' | 'quick-response' | 'translation' | 'results'
+type QuestionType = 'read_aloud' | 'multiple_choice' | 'quick_response' | 'translation'
 
-    // Navigation state
-    const currentPage = ref('home')
-    const sessionId = ref(null)
-    const currentQuestion = ref(null)
-    const showSettings = ref(false)
-    const currentInstruction = ref(null)
-    const currentInstructionAudio = ref(null)
-    const currentQuestionType = ref(null)
-    const homePage = ref(null)
-    // In Tauri mode, wait for backend-ready event before rendering content
-    const backendReady = ref(!window.__TAURI__)
+// Extend Window interface for Tauri
+declare global {
+  interface Window {
+    __TAURI__?: boolean
+  }
+}
 
-    // Set up Tauri backend-ready listener
-    onMounted(async () => {
-      if (window.__TAURI__) {
-        const { listen } = await import('@tauri-apps/api/event')
-        listen('backend-ready', (event) => {
-          const port = event.payload
-          console.log('Backend ready on port:', port)
-          setApiBaseUrl(`http://127.0.0.1:${port}`)
-          backendReady.value = true
-        })
-      }
+// Translation support
+const { translate } = useTranslations()
+
+// Navigation state
+const currentPage = ref<PageType>('home')
+const sessionId = ref<string>('')
+const currentQuestion = ref<Question | null>(null)
+const showSettings = ref<boolean>(false)
+const currentInstruction = ref<Instruction | null>(null)
+const currentInstructionAudio = ref<string | null>(null)
+const currentQuestionType = ref<QuestionType | null>(null)
+const homePage = ref<InstanceType<typeof HomePage> | null>(null)
+// In Tauri mode, wait for backend-ready event before rendering content
+const backendReady = ref<boolean>(!window.__TAURI__)
+
+// Set up Tauri backend-ready listener
+onMounted(async () => {
+  if (window.__TAURI__) {
+    const { listen } = await import('@tauri-apps/api/event')
+    listen('backend-ready', (event: { payload: number }) => {
+      const port = event.payload
+      console.log('Backend ready on port:', port)
+      setApiBaseUrl(`http://127.0.0.1:${port}`)
+      backendReady.value = true
     })
+  }
+})
 
-    // Handle exam start event from components
-    const handleStartExam = async (examData) => {
-      console.log('Exam start request:', examData)
+interface ExamStartData {
+  sessionId?: string
+  examFile?: string
+}
 
-      // Check if we have a session ID (from existing exam) or exam file (from file converter)
-      if (examData.sessionId) {
-        // Existing exam with session ID
-        sessionId.value = examData.sessionId
+// Handle exam start event from components
+const handleStartExam = async (examData: ExamStartData) => {
+  console.log('Exam start request:', examData)
+
+  // Check if we have a session ID (from existing exam) or exam file (from file converter)
+  if (examData.sessionId) {
+    // Existing exam with session ID
+    sessionId.value = examData.sessionId
+    currentPage.value = 'audio-test'
+  } else if (examData.examFile) {
+    // New exam from file converter - start session first
+    try {
+      const response = await fetch(apiUrl('/session/start'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          exam_file_path: examData.examFile
+        })
+      })
+
+      const data: StartSessionResponse = await response.json()
+
+      if (data.session_id) {
+        sessionId.value = data.session_id
         currentPage.value = 'audio-test'
-      } else if (examData.examFile) {
-        // New exam from file converter - start session first
-        try {
-          const response = await fetch(apiUrl('/session/start'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              exam_file_path: examData.examFile
-            })
-          })
-
-          const data = await response.json()
-
-          if (data.session_id) {
-            sessionId.value = data.session_id
-            currentPage.value = 'audio-test'
-          } else {
-            console.error('Failed to start exam session')
-            currentPage.value = 'home'
-          }
-        } catch (error) {
-          console.error('Failed to start exam:', error)
-          currentPage.value = 'home'
-        }
       } else {
-        console.error('Invalid exam data:', examData)
+        console.error('Failed to start exam session')
         currentPage.value = 'home'
       }
+    } catch (error) {
+      console.error('Failed to start exam:', error)
+      currentPage.value = 'home'
     }
+  } else {
+    console.error('Invalid exam data:', examData)
+    currentPage.value = 'home'
+  }
+}
 
-    // Start the first question
-    const startFirstQuestion = async () => {
-      console.log('Starting first question for session:', sessionId.value)
+// Start the first question
+const startFirstQuestion = async () => {
+  console.log('Starting first question for session:', sessionId.value)
+  await getNextQuestion()
+}
+
+interface AudioTestData {
+  sessionId: string
+  audioTestPassed: boolean
+}
+
+// Handle audio test completion
+const handleAudioTestComplete = async (testData: AudioTestData) => {
+  console.log('Audio test completed:', testData)
+
+  // Start the first question
+  await startFirstQuestion()
+}
+
+// Get the next question
+const getNextQuestion = async () => {
+  try {
+    console.log('Fetching next question for session:', sessionId.value)
+    const response = await fetch(apiUrl(`/session/${sessionId.value}/question`))
+    const data: GetQuestionResponse = await response.json()
+
+    console.log('Question response:', data)
+
+    if (data.question) {
+      currentQuestion.value = {
+        ...data.question,
+        question_index: data.question_index,
+        is_last: data.is_last,
+        audio_file_path: data.audio_file_path,
+        time_limit: data.time_limit
+      }
+
+      console.log('Setting up question:', data.question.type, 'has instruction:', !!data.instruction)
+
+      // Check if this is the first question in a section (has instruction)
+      if (data.instruction) {
+        // Show instruction page first
+        currentQuestionType.value = data.question.type as QuestionType
+        currentInstruction.value = data.instruction
+        currentInstructionAudio.value = data.instruct_audio_file_path ? apiUrl(data.instruct_audio_file_path) : null
+        currentPage.value = 'instruction'
+        console.log('Navigating to instruction page for section:', data.question.type)
+      } else {
+        // Go directly to question
+        navigateToQuestion(data.question.type as QuestionType)
+      }
+    } else {
+      console.error('No question in response:', data)
+      currentPage.value = 'home'
+    }
+  } catch (error) {
+    console.error('Failed to get next question:', error)
+    currentPage.value = 'home'
+  }
+}
+
+// Navigate to the appropriate question page
+const navigateToQuestion = (questionType: QuestionType) => {
+  console.log('Navigating to question type:', questionType)
+  if (questionType === 'read_aloud') {
+    currentPage.value = 'read-aloud'
+  } else if (questionType === 'multiple_choice') {
+    currentPage.value = 'multiple-choice'
+  } else if (questionType === 'quick_response') {
+    currentPage.value = 'quick-response'
+  } else if (questionType === 'translation') {
+    currentPage.value = 'translation'
+  } else {
+    console.log('Unknown question type:', questionType)
+    currentPage.value = 'home'
+  }
+}
+
+// Handle instruction page completion
+const handleInstructionComplete = async () => {
+  console.log('Instruction completed, starting question section:', currentQuestionType.value)
+  if (currentQuestionType.value) {
+    navigateToQuestion(currentQuestionType.value)
+  }
+}
+
+interface QuestionResult {
+  success: boolean
+  error?: string
+}
+
+// Handle question completion
+const handleQuestionComplete = async (result: QuestionResult) => {
+  console.log('Question completed:', result)
+
+  if (result.success) {
+    if (currentQuestion.value?.is_last) {
+      // Go to results page
+      console.log('Exam completed! Navigating to results...')
+      currentPage.value = 'results'
+    } else {
+      // Get next question
       await getNextQuestion()
     }
+  } else {
+    // Handle error
+    console.error('Question failed:', result.error)
+    currentPage.value = 'home'
+  }
+}
 
-    // Handle audio test completion
-    const handleAudioTestComplete = async (testData) => {
-      console.log('Audio test completed:', testData)
+// Handle new exam request from results page
+const handleNewExam = () => {
+  // Reset state for new exam
+  currentPage.value = 'home'
+  sessionId.value = ''
+  currentQuestion.value = null
+}
 
-      // Start the first question
-      await startFirstQuestion()
-    }
+// Handle go home request from results page
+const handleGoHome = () => {
+  currentPage.value = 'home'
+}
 
-    // Get the next question
-    const getNextQuestion = async () => {
-      try {
-        console.log('Fetching next question for session:', sessionId.value)
-        const response = await fetch(apiUrl(`/session/${sessionId.value}/question`))
-        const data = await response.json()
+const handleSettingsUpdated = async (newSettings: AppConfig) => {
+  console.log('Settings updated:', newSettings)
+  // Theme feature has been removed
+  // currentTheme.value = `theme-${newSettings.ui.theme}`
+  // document.body.className = `theme-${newSettings.ui.theme}`
 
-        console.log('Question response:', data)
-
-        if (data.question) {
-          currentQuestion.value = data.question
-          currentQuestion.value.question_index = data.question_index
-          currentQuestion.value.is_last = data.is_last
-          currentQuestion.value.audio_file_path = data.audio_file_path
-          currentQuestion.value.time_limit = data.time_limit
-
-          console.log('Setting up question:', data.question.type, 'has instruction:', !!data.instruction)
-
-          // Check if this is the first question in a section (has instruction)
-          if (data.instruction) {
-            // Show instruction page first
-            currentQuestionType.value = data.question.type
-            currentInstruction.value = data.instruction
-            currentInstructionAudio.value = data.instruct_audio_file_path ? apiUrl(data.instruct_audio_file_path) : null
-            currentPage.value = 'instruction'
-            console.log('Navigating to instruction page for section:', data.question.type)
-          } else {
-            // Go directly to question
-            navigateToQuestion(data.question.type)
-          }
-        } else {
-          console.error('No question in response:', data)
-          currentPage.value = 'home'
-        }
-      } catch (error) {
-        console.error('Failed to get next question:', error)
-        currentPage.value = 'home'
-      }
-    }
-
-    // Navigate to the appropriate question page
-    const navigateToQuestion = (questionType) => {
-      console.log('Navigating to question type:', questionType)
-      if (questionType === 'read_aloud') {
-        currentPage.value = 'read-aloud'
-      } else if (questionType === 'multiple_choice') {
-        currentPage.value = 'multiple-choice'
-      } else if (questionType === 'quick_response') {
-        currentPage.value = 'quick-response'
-      } else if (questionType === 'translation') {
-        currentPage.value = 'translation'
-      } else {
-        console.log('Unknown question type:', questionType)
-        currentPage.value = 'home'
-      }
-    }
-
-    // Handle instruction page completion
-    const handleInstructionComplete = async () => {
-      console.log('Instruction completed, starting question section:', currentQuestionType.value)
-      navigateToQuestion(currentQuestionType.value)
-    }
-
-    // Handle question completion
-    const handleQuestionComplete = async (result) => {
-      console.log('Question completed:', result)
-
-      if (result.success) {
-        if (currentQuestion.value.is_last) {
-          // Go to results page
-          console.log('Exam completed! Navigating to results...')
-          currentPage.value = 'results'
-        } else {
-          // Get next question
-          await getNextQuestion()
-        }
-      } else {
-        // Handle error
-        console.error('Question failed:', result.error)
-        currentPage.value = 'home'
-      }
-    }
-
-    // Handle new exam request from results page
-    const handleNewExam = () => {
-      // Reset state for new exam
-      currentPage.value = 'home'
-      sessionId.value = null
-      currentQuestion.value = null
-    }
-
-    // Handle go home request from results page
-    const handleGoHome = () => {
-      currentPage.value = 'home'
-    }
-
-    const handleSettingsUpdated = async (newSettings) => {
-      console.log('Settings updated:', newSettings)
-      // Theme feature has been removed
-      // currentTheme.value = `theme-${newSettings.ui.theme}`
-      // document.body.className = `theme-${newSettings.ui.theme}`
-
-      // Refresh API key status to update button states
-      if (homePage.value) {
-        await homePage.value.refreshApiKeyStatus()
-      }
-    }
-
-    return {
-      currentPage,
-      sessionId,
-      currentQuestion,
-      currentInstruction,
-      currentInstructionAudio,
-      currentQuestionType,
-      showSettings,
-      homePage,
-      translate,
-      handleStartExam,
-      handleAudioTestComplete,
-      handleInstructionComplete,
-      handleQuestionComplete,
-      getNextQuestion,
-      backendReady,
-      handleNewExam,
-      handleGoHome,
-      handleSettingsUpdated
-    }
+  // Refresh API key status to update button states
+  if (homePage.value) {
+    await homePage.value.refreshApiKeyStatus()
   }
 }
 </script>

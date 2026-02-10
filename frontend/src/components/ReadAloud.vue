@@ -1,9 +1,9 @@
 <template>
-  <div class="read-aloud">
+  <div v-if="props.currentQuestion" class="read-aloud">
     <!-- Display Phase -->
     <div v-if="phase === 'display'" class="display-phase">
       <div class="instruction-text">
-        {{ currentQuestion.text }}
+        {{ props.currentQuestion.text }}
       </div>
       <div class="status-text">
         {{ translate('questions.readAloud.getReady') }}
@@ -13,7 +13,7 @@
     <!-- Thinking Phase -->
     <div v-else-if="phase === 'thinking'" class="thinking-phase">
       <div class="instruction-text">
-        {{ currentQuestion.text }}
+        {{ props.currentQuestion.text }}
       </div>
       <div class="thinking-text">
         {{ translate('questions.readAloud.getReady') }}
@@ -26,7 +26,7 @@
     <!-- Recording Phase -->
     <div v-else-if="phase === 'recording'" class="recording-phase">
       <div class="instruction-text">
-        {{ currentQuestion.text }}
+        {{ props.currentQuestion.text }}
       </div>
       <div class="recording-indicator" :class="{ 'recording-danger': timeRemaining <= 5 }">
         <div class="recording-dot"></div>
@@ -42,265 +42,256 @@
         {{ translate('questions.readAloud.stopRecording') }}
       </button>
     </div>
-
-    </div>
+  </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
-import Mp3Recorder, { blobToBase64 } from '../utils/mp3Recorder.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
+import { Mp3Recorder, blobToBase64 } from '@/utils/mp3Recorder'
+import type { Question } from '@/types'
 
-export default {
-  name: 'ReadAloud',
-  props: {
-    sessionId: {
-      type: String,
-      required: true
-    },
-    currentQuestion: {
-      type: Object,
-      required: true
-    }
-  },
-  emits: ['complete'],
-  setup(props, { emit }) {
-    // Translation support
-    const { translate } = useTranslations()
+interface Props {
+  sessionId: string
+  currentQuestion: Question | null
+}
 
-    // Phase management
-    const phase = ref('display') // 'display', 'thinking', 'recording'
+interface Emits {
+  (e: 'complete', result: { sessionId: string; questionIndex: number; success: boolean; error?: string }): void
+}
 
-    // Timer
-    const timeRemaining = ref(0)
-    const countdownText = ref('3')
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
-    // MP3 recorder
-    let mp3Recorder = null
-    let recordingTimer = null
-    let thinkingTimer = null
+const { translate } = useTranslations()
 
-    // Initialize on component mount
-    onMounted(async () => {
-      await initializeQuestion()
-    })
+// Phase management
+const phase = ref<'display' | 'thinking' | 'recording'>('display')
 
-    // Watch for question changes and reset state
-    watch(() => props.currentQuestion, async (newQuestion, oldQuestion) => {
-      if (newQuestion && newQuestion.id !== oldQuestion?.id) {
-        console.log('ReadAloud: Question changed from', oldQuestion?.id, 'to', newQuestion.id)
-        // Reset component state for new question
-        resetState()
-        // Initialize new question
-        await initializeQuestion()
-      }
-    }, { deep: true })
+// Timer
+const timeRemaining = ref(0)
+const countdownText = ref('3')
 
-    // Cleanup on component unmount
-    onUnmounted(() => {
-      cleanup()
-    })
+// MP3 recorder
+let mp3Recorder: Mp3Recorder | null = null
+let recordingTimer: ReturnType<typeof setInterval> | null = null
+let thinkingTimer: ReturnType<typeof setInterval> | null = null
 
+// Initialize on component mount
+onMounted(async () => {
+  await initializeQuestion()
+})
+
+// Watch for question changes and reset state
+watch(() => props.currentQuestion, async (newQuestion, oldQuestion) => {
+  if (newQuestion && newQuestion.id !== oldQuestion?.id) {
+    console.log('ReadAloud: Question changed from', oldQuestion?.id, 'to', newQuestion.id)
     // Reset component state for new question
-    const resetState = () => {
-      console.log('ReadAloud: Resetting component state')
+    resetState()
+    // Initialize new question
+    await initializeQuestion()
+  }
+}, { deep: true })
 
-      // Clean up any existing resources
-      cleanup()
+// Cleanup on component unmount
+onUnmounted(() => {
+  cleanup()
+})
 
-      // Reset all reactive state
-      phase.value = 'display'
-      timeRemaining.value = 0
-      countdownText.value = '3'
+// Reset component state for new question
+const resetState = (): void => {
+  console.log('ReadAloud: Resetting component state')
 
-      // Reset audio chunks
-      // audioChunks = []  // No longer needed with MP3 recorder
+  // Clean up any existing resources
+  cleanup()
 
-      console.log('ReadAloud: State reset complete')
+  // Reset all reactive state
+  phase.value = 'display'
+  timeRemaining.value = 0
+  countdownText.value = '3'
+
+  console.log('ReadAloud: State reset complete')
+}
+
+// Initialize the question flow
+const initializeQuestion = async (): Promise<void> => {
+  if (!props.currentQuestion) {
+    return
+  }
+
+  try {
+    // Initialize audio recording permissions
+    await initializeAudio()
+
+    // Start thinking phase first
+    startThinkingPhase()
+
+  } catch (error) {
+    console.error('Failed to initialize question:', error)
+    submitEmptyAnswer()
+  }
+}
+
+// Initialize MP3 recorder
+const initializeAudio = async (): Promise<void> => {
+  try {
+    // Check browser support
+    if (!Mp3Recorder.isSupported()) {
+      throw new Error('MP3 recording is not supported in this browser')
     }
 
-    // Initialize the question flow
-    const initializeQuestion = async () => {
-      try {
-        // Initialize audio recording permissions
-        await initializeAudio()
+    // Create new MP3 recorder instance
+    mp3Recorder = new Mp3Recorder()
+    console.log('MP3 recorder initialized successfully')
+  } catch (error) {
+    console.error('Failed to initialize MP3 recorder:', error)
+    throw error
+  }
+}
 
-        // Start thinking phase first
-        startThinkingPhase()
+// Start thinking phase
+const startThinkingPhase = (): void => {
+  phase.value = 'thinking'
+  let countdown = 3
 
-      } catch (error) {
-        console.error('Failed to initialize question:', error)
-        submitEmptyAnswer()
-      }
+  // Start countdown timer
+  thinkingTimer = setInterval(() => {
+    countdown--
+    countdownText.value = countdown.toString()
+
+    if (countdown <= 0) {
+      if (thinkingTimer) clearInterval(thinkingTimer)
+      thinkingTimer = null
+      startRecordingPhase()
+    }
+  }, 1000)
+}
+
+// Start recording phase
+const startRecordingPhase = async (): Promise<void> => {
+  if (!props.currentQuestion) {
+    return
+  }
+
+  phase.value = 'recording'
+  timeRemaining.value = props.currentQuestion.time_limit || 15
+
+  // Start MP3 recording
+  try {
+    if (mp3Recorder) {
+      await mp3Recorder.start()
+    }
+  } catch (error) {
+    console.error('Failed to start MP3 recording:', error)
+    submitEmptyAnswer()
+    return
+  }
+
+  // Start countdown timer
+  recordingTimer = setInterval(() => {
+    timeRemaining.value--
+
+    if (timeRemaining.value <= 0) {
+      stopRecording()
+    }
+  }, 1000)
+}
+
+// Stop recording manually
+const stopRecording = async (): Promise<void> => {
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+
+  // Stop MP3 recording and submit answer
+  if (mp3Recorder) {
+    try {
+      const mp3Blob = await mp3Recorder.stop()
+      await submitAnswer(mp3Blob)
+    } catch (error) {
+      console.error('Failed to stop MP3 recording:', error)
+      submitEmptyAnswer()
+    }
+  }
+}
+
+// Submit the recorded answer
+const submitAnswer = async (mp3Blob: Blob): Promise<void> => {
+  try {
+    if (!mp3Blob) {
+      throw new Error('No audio blob provided')
     }
 
-    // Initialize MP3 recorder
-    const initializeAudio = async () => {
-      try {
-        // Check browser support
-        if (!Mp3Recorder.isSupported()) {
-          throw new Error('MP3 recording is not supported in this browser')
-        }
+    // Convert MP3 blob to base64
+    const base64Audio = await blobToBase64(mp3Blob)
 
-        // Create new MP3 recorder instance
-        mp3Recorder = new Mp3Recorder()
-        console.log('MP3 recorder initialized successfully')
-      } catch (error) {
-        console.error('Failed to initialize MP3 recorder:', error)
-        throw error
-      }
-    }
+    // Submit as JSON with base64 encoded MP3 data
+    const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        audio_data: base64Audio
+      })
+    })
 
-    // Start thinking phase
-    const startThinkingPhase = () => {
-      phase.value = 'thinking'
-      let countdown = 3
+    if (response.ok) {
+      console.log('MP3 answer submitted successfully')
 
-      // Start countdown timer
-      thinkingTimer = setInterval(() => {
-        countdown--
-        countdownText.value = countdown.toString()
-
-        if (countdown <= 0) {
-          clearInterval(thinkingTimer)
-          thinkingTimer = null
-          startRecordingPhase()
-        }
-      }, 1000)
-    }
-
-    // Start recording phase
-    const startRecordingPhase = async () => {
-      phase.value = 'recording'
-      timeRemaining.value = props.currentQuestion.time_limit || 15
-
-      // Start MP3 recording
-      try {
-        if (mp3Recorder) {
-          await mp3Recorder.start()
-        }
-      } catch (error) {
-        console.error('Failed to start MP3 recording:', error)
-        submitEmptyAnswer()
-        return
-      }
-
-      // Start countdown timer
-      recordingTimer = setInterval(() => {
-        timeRemaining.value--
-
-        if (timeRemaining.value <= 0) {
-          stopRecording()
-        }
-      }, 1000)
-    }
-
-    // Stop recording manually
-    const stopRecording = async () => {
-      if (recordingTimer) {
-        clearInterval(recordingTimer)
-        recordingTimer = null
-      }
-
-      // Stop MP3 recording and submit answer
-      if (mp3Recorder) {
-        try {
-          const mp3Blob = await mp3Recorder.stop()
-          await submitAnswer(mp3Blob)
-        } catch (error) {
-          console.error('Failed to stop MP3 recording:', error)
-          submitEmptyAnswer()
-        }
-      }
-    }
-
-    // Submit the recorded answer
-    const submitAnswer = async (mp3Blob) => {
-      try {
-        if (!mp3Blob) {
-          throw new Error('No audio blob provided')
-        }
-
-        // Convert MP3 blob to base64
-        const base64Audio = await blobToBase64(mp3Blob)
-
-        // Submit as JSON with base64 encoded MP3 data
-        const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            audio_data: base64Audio
-          })
-        })
-
-        if (response.ok) {
-          console.log('MP3 answer submitted successfully')
-
-          // Immediately emit completion event - don't wait for processing
-          emit('complete', {
-            sessionId: props.sessionId,
-            questionIndex: props.currentQuestion.question_index,
-            success: true
-          })
-        } else {
-          throw new Error('Failed to submit answer')
-        }
-
-      } catch (error) {
-        console.error('Failed to submit MP3 answer:', error)
-        emit('complete', {
-          sessionId: props.sessionId,
-          questionIndex: props.currentQuestion.question_index,
-          success: false,
-          error: error.message
-        })
-      }
-    }
-
-    // Submit empty answer (when recording fails)
-    const submitEmptyAnswer = () => {
+      // Immediately emit completion event - don't wait for processing
       emit('complete', {
         sessionId: props.sessionId,
-        questionIndex: props.currentQuestion.question_index,
-        success: false,
-        error: 'Recording failed'
+        questionIndex: props.currentQuestion!.question_index ?? 0,
+        success: true
       })
+    } else {
+      throw new Error('Failed to submit answer')
     }
 
-    // Cleanup resources
-    const cleanup = () => {
-      if (thinkingTimer) {
-        clearInterval(thinkingTimer)
-        thinkingTimer = null
-      }
+  } catch (error) {
+    console.error('Failed to submit MP3 answer:', error)
+    emit('complete', {
+      sessionId: props.sessionId,
+      questionIndex: props.currentQuestion!.question_index ?? 0,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+}
 
-      if (recordingTimer) {
-        clearInterval(recordingTimer)
-        recordingTimer = null
-      }
+// Submit empty answer (when recording fails)
+const submitEmptyAnswer = (): void => {
+  emit('complete', {
+    sessionId: props.sessionId,
+    questionIndex: props.currentQuestion!.question_index ?? 0,
+    success: false,
+    error: 'Recording failed'
+  })
+}
 
-      // Cleanup MP3 recorder if it exists
-      if (mp3Recorder) {
-        try {
-          mp3Recorder._cleanup()
-        } catch (error) {
-          console.error('Error cleaning up MP3 recorder:', error)
-        }
-        mp3Recorder = null
-      }
+// Cleanup resources
+const cleanup = (): void => {
+  if (thinkingTimer) {
+    clearInterval(thinkingTimer)
+    thinkingTimer = null
+  }
+
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+
+  // Cleanup MP3 recorder if it exists
+  if (mp3Recorder) {
+    try {
+      mp3Recorder.cleanup()
+    } catch (error) {
+      console.error('Error cleaning up MP3 recorder:', error)
     }
-
-    
-    return {
-      phase,
-      timeRemaining,
-      countdownText,
-      stopRecording,
-      translate
-    }
+    mp3Recorder = null
   }
 }
 </script>

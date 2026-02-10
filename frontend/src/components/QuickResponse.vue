@@ -1,5 +1,5 @@
 <template>
-  <div class="quick-response">
+  <div v-if="props.currentQuestion" class="quick-response">
     <!-- Question Playback Phase -->
     <div v-if="phase === 'playback'" class="playback-phase">
       <div class="playback-icon">🎧</div>
@@ -54,306 +54,293 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
-import Mp3Recorder, { blobToBase64 } from '../utils/mp3Recorder.js'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
+import { Mp3Recorder, blobToBase64 } from '@/utils/mp3Recorder'
+import type { Question } from '@/types'
 
-export default {
-  name: 'QuickResponse',
-  props: {
-    sessionId: {
-      type: String,
-      required: true
-    },
-    currentQuestion: {
-      type: Object,
-      required: true
-    }
-  },
-  emits: ['complete'],
-  setup(props, { emit }) {
-    // Translation support
-    const { translate } = useTranslations()
+interface Props {
+  sessionId: string
+  currentQuestion: Question | null
+}
 
-    // Phase management
-    const phase = ref('playback') // 'playback', 'ready', 'recording', 'auto-submit'
+interface Emits {
+  (e: 'complete', result: { sessionId: string; questionIndex: number; success: boolean; error?: string }): void
+}
 
-    // Timer and audio
-    const timeRemaining = ref(0)
-    const audioPlayer = ref(null)
-    const audioStatus = ref('Preparing...')
-    const countdownText = ref('3')
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
 
-    // Countdown timer
-    let readyTimer = null
-    let recordingTimer = null
+const { translate } = useTranslations()
 
-    // MP3 recorder
-    let mp3Recorder = null
+// Phase management
+const phase = ref<'playback' | 'ready' | 'recording' | 'auto-submit'>('playback')
 
-    // Initialize on component mount
-    onMounted(async () => {
-      await initializeQuestion()
-    })
+// Timer and audio
+const timeRemaining = ref(0)
+const audioPlayer = ref<HTMLAudioElement | null>(null)
+const audioStatus = ref('Preparing...')
+const countdownText = ref('3')
 
-    // Watch for question changes and reset state
-    watch(() => props.currentQuestion, async (newQuestion, oldQuestion) => {
-      if (newQuestion && newQuestion.id !== oldQuestion?.id) {
-        console.log('QuickResponse: Question changed from', oldQuestion?.id, 'to', newQuestion.id)
-        // Reset component state for new question
-        resetState()
-        // Initialize new question
-        await initializeQuestion()
-      }
-    }, { deep: true })
+// Countdown timer
+let readyTimer: ReturnType<typeof setInterval> | null = null
+let recordingTimer: ReturnType<typeof setInterval> | null = null
 
-    // Cleanup on component unmount
-    onUnmounted(() => {
-      cleanup()
-    })
+// MP3 recorder
+let mp3Recorder: Mp3Recorder | null = null
 
+// Initialize on component mount
+onMounted(async () => {
+  await initializeQuestion()
+})
+
+// Watch for question changes and reset state
+watch(() => props.currentQuestion, async (newQuestion, oldQuestion) => {
+  if (newQuestion && newQuestion.id !== oldQuestion?.id) {
+    console.log('QuickResponse: Question changed from', oldQuestion?.id, 'to', newQuestion.id)
     // Reset component state for new question
-    const resetState = () => {
-      console.log('QuickResponse: Resetting component state')
+    resetState()
+    // Initialize new question
+    await initializeQuestion()
+  }
+}, { deep: true })
 
-      // Clean up any existing resources
-      cleanup()
+// Cleanup on component unmount
+onUnmounted(() => {
+  cleanup()
+})
 
-      // Reset all reactive state
-      phase.value = 'playback'
-      timeRemaining.value = 0
-      audioStatus.value = 'Preparing...'
-      countdownText.value = '3'
+// Reset component state for new question
+const resetState = (): void => {
+  console.log('QuickResponse: Resetting component state')
 
-      console.log('QuickResponse: State reset complete')
-    }
+  // Clean up any existing resources
+  cleanup()
 
-    // Initialize the question flow
-    const initializeQuestion = async () => {
-      try {
-        // Initialize audio recording permissions
-        await initializeAudio()
+  // Reset all reactive state
+  phase.value = 'playback'
+  timeRemaining.value = 0
+  audioStatus.value = 'Preparing...'
+  countdownText.value = '3'
 
-        // Start playback phase
-        await startPlaybackPhase()
+  console.log('QuickResponse: State reset complete')
+}
 
-      } catch (error) {
-        console.error('Failed to initialize question:', error)
-        submitEmptyAnswer()
-      }
-    }
-
-    // Initialize MP3 recorder
-    const initializeAudio = async () => {
-      try {
-        // Check browser support
-        if (!Mp3Recorder.isSupported()) {
-          throw new Error('MP3 recording is not supported in this browser')
-        }
-
-        // Create new MP3 recorder instance
-        mp3Recorder = new Mp3Recorder()
-        console.log('MP3 recorder initialized successfully')
-      } catch (error) {
-        console.error('Failed to initialize MP3 recorder:', error)
-        throw error
-      }
-    }
+// Initialize the question flow
+const initializeQuestion = async (): Promise<void> => {
+  try {
+    // Initialize audio recording permissions
+    await initializeAudio()
 
     // Start playback phase
-    const startPlaybackPhase = async () => {
-      phase.value = 'playback'
+    await startPlaybackPhase()
 
-      if (props.currentQuestion.audio_file_path) {
-        // Play question audio
-        audioStatus.value = 'Playing question...'
-        await playQuestionAudio()
-      } else {
-        // No audio file, this shouldn't happen for quick_response
-        console.error('QuickResponse question missing audio file')
-        throw new Error('No audio file available for quick response question')
-      }
+  } catch (error) {
+    console.error('Failed to initialize question:', error)
+    submitEmptyAnswer()
+  }
+}
 
-      // Start ready phase
-      startReadyPhase()
+// Initialize MP3 recorder
+const initializeAudio = async (): Promise<void> => {
+  try {
+    // Check browser support
+    if (!Mp3Recorder.isSupported()) {
+      throw new Error('MP3 recording is not supported in this browser')
     }
 
+    // Create new MP3 recorder instance
+    mp3Recorder = new Mp3Recorder()
+    console.log('MP3 recorder initialized successfully')
+  } catch (error) {
+    console.error('Failed to initialize MP3 recorder:', error)
+    throw error
+  }
+}
+
+// Start playback phase
+const startPlaybackPhase = async (): Promise<void> => {
+  phase.value = 'playback'
+
+  if (props.currentQuestion!.audio_file_path) {
     // Play question audio
-    const playQuestionAudio = async () => {
-      try {
-        if (audioPlayer.value) {
-          audioPlayer.value.src = apiUrl(props.currentQuestion.audio_file_path)
+    audioStatus.value = 'Playing question...'
+    await playQuestionAudio()
+  } else {
+    // No audio file, this shouldn't happen for quick_response
+    console.error('QuickResponse question missing audio file')
+    throw new Error('No audio file available for quick response question')
+  }
 
-          return new Promise((resolve, reject) => {
-            audioPlayer.value.onended = resolve
-            audioPlayer.value.onerror = reject
-            audioPlayer.value.play().catch(reject)
-          })
-        }
-      } catch (error) {
-        console.error('Failed to play question audio:', error)
-        throw error
-      }
-    }
+  // Start ready phase
+  startReadyPhase()
+}
 
-    // Start ready phase
-    const startReadyPhase = () => {
-      phase.value = 'ready'
-      let countdown = 3
+// Play question audio
+const playQuestionAudio = async (): Promise<void> => {
+  try {
+    if (audioPlayer.value && props.currentQuestion!.audio_file_path) {
+      audioPlayer.value.src = apiUrl(props.currentQuestion!.audio_file_path)
 
-      // Start countdown timer
-      readyTimer = setInterval(() => {
-        countdown--
-        countdownText.value = countdown.toString()
-
-        if (countdown <= 0) {
-          clearInterval(readyTimer)
-          readyTimer = null
-          startRecordingPhase()
-        }
-      }, 1000)
-    }
-
-    // Start recording phase
-    const startRecordingPhase = async () => {
-      phase.value = 'recording'
-      timeRemaining.value = props.currentQuestion.time_limit || 15
-
-      // Start MP3 recording
-      try {
-        if (mp3Recorder) {
-          await mp3Recorder.start()
-        }
-      } catch (error) {
-        console.error('Failed to start MP3 recording:', error)
-        submitEmptyAnswer()
-        return
-      }
-
-      // Start countdown timer
-      recordingTimer = setInterval(() => {
-        timeRemaining.value--
-
-        if (timeRemaining.value <= 0) {
-          autoSubmit()
-        }
-      }, 1000)
-    }
-
-    // Stop recording manually
-    const stopRecording = async () => {
-      if (recordingTimer) {
-        clearInterval(recordingTimer)
-        recordingTimer = null
-      }
-
-      // Stop MP3 recording and submit answer
-      if (mp3Recorder) {
-        try {
-          const mp3Blob = await mp3Recorder.stop()
-          await submitAnswer(mp3Blob)
-        } catch (error) {
-          console.error('Failed to stop MP3 recording:', error)
-          submitEmptyAnswer()
-        }
-      }
-    }
-
-    // Auto-submit when time runs out
-    const autoSubmit = () => {
-      phase.value = 'auto-submit'
-      stopRecording()
-    }
-
-    // Submit the recorded answer
-    const submitAnswer = async (mp3Blob) => {
-      try {
-        if (!mp3Blob) {
-          throw new Error('No audio blob provided')
-        }
-
-        // Convert MP3 blob to base64
-        const base64Audio = await blobToBase64(mp3Blob)
-
-        // Submit as JSON with base64 encoded audio data
-        const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            audio_data: base64Audio
-          })
-        })
-
-        if (response.ok) {
-          console.log('MP3 answer submitted successfully')
-
-          // Immediately emit completion event
-          emit('complete', {
-            sessionId: props.sessionId,
-            questionIndex: props.currentQuestion.question_index,
-            success: true
-          })
-        } else {
-          throw new Error('Failed to submit answer')
-        }
-
-      } catch (error) {
-        console.error('Failed to submit MP3 answer:', error)
-        emit('complete', {
-          sessionId: props.sessionId,
-          questionIndex: props.currentQuestion.question_index,
-          success: false,
-          error: error.message
-        })
-      }
-    }
-
-    // Submit empty answer (when recording fails)
-    const submitEmptyAnswer = () => {
-      emit('complete', {
-        sessionId: props.sessionId,
-        questionIndex: props.currentQuestion.question_index,
-        success: false,
-        error: 'Recording failed'
+      return new Promise((resolve, reject) => {
+        if (!audioPlayer.value) return reject(new Error('Audio player not available'))
+        audioPlayer.value.onended = () => resolve()
+        audioPlayer.value.onerror = reject
+        audioPlayer.value.play().catch(reject)
       })
     }
+  } catch (error) {
+    console.error('Failed to play question audio:', error)
+    throw error
+  }
+}
 
-    // Cleanup resources
-    const cleanup = () => {
-      if (readyTimer) {
-        clearInterval(readyTimer)
-        readyTimer = null
-      }
+// Start ready phase
+const startReadyPhase = (): void => {
+  phase.value = 'ready'
+  let countdown = 3
 
-      if (recordingTimer) {
-        clearInterval(recordingTimer)
-        recordingTimer = null
-      }
+  // Start countdown timer
+  readyTimer = setInterval(() => {
+    countdown--
+    countdownText.value = countdown.toString()
 
-      // Cleanup MP3 recorder if it exists
-      if (mp3Recorder) {
-        try {
-          mp3Recorder._cleanup()
-        } catch (error) {
-          console.error('Error cleaning up MP3 recorder:', error)
-        }
-        mp3Recorder = null
-      }
+    if (countdown <= 0) {
+      if (readyTimer) clearInterval(readyTimer)
+      readyTimer = null
+      startRecordingPhase()
+    }
+  }, 1000)
+}
+
+// Start recording phase
+const startRecordingPhase = async (): Promise<void> => {
+  phase.value = 'recording'
+  timeRemaining.value = props.currentQuestion!.time_limit || 15
+
+  // Start MP3 recording
+  try {
+    if (mp3Recorder) {
+      await mp3Recorder.start()
+    }
+  } catch (error) {
+    console.error('Failed to start MP3 recording:', error)
+    submitEmptyAnswer()
+    return
+  }
+
+  // Start countdown timer
+  recordingTimer = setInterval(() => {
+    timeRemaining.value--
+
+    if (timeRemaining.value <= 0) {
+      autoSubmit()
+    }
+  }, 1000)
+}
+
+// Stop recording manually
+const stopRecording = async (): Promise<void> => {
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+
+  // Stop MP3 recording and submit answer
+  if (mp3Recorder) {
+    try {
+      const mp3Blob = await mp3Recorder.stop()
+      await submitAnswer(mp3Blob)
+    } catch (error) {
+      console.error('Failed to stop MP3 recording:', error)
+      submitEmptyAnswer()
+    }
+  }
+}
+
+// Auto-submit when time runs out
+const autoSubmit = (): void => {
+  phase.value = 'auto-submit'
+  stopRecording()
+}
+
+// Submit the recorded answer
+const submitAnswer = async (mp3Blob: Blob): Promise<void> => {
+  try {
+    if (!mp3Blob) {
+      throw new Error('No audio blob provided')
     }
 
-    return {
-      phase,
-      timeRemaining,
-      audioPlayer,
-      audioStatus,
-      countdownText,
-      stopRecording,
-      translate
+    // Convert MP3 blob to base64
+    const base64Audio = await blobToBase64(mp3Blob)
+
+    // Submit as JSON with base64 encoded audio data
+    const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        audio_data: base64Audio
+      })
+    })
+
+    if (response.ok) {
+      console.log('MP3 answer submitted successfully')
+
+      // Immediately emit completion event
+      emit('complete', {
+        sessionId: props.sessionId,
+        questionIndex: props.currentQuestion!.question_index ?? 0,
+        success: true
+      })
+    } else {
+      throw new Error('Failed to submit answer')
     }
+
+  } catch (error) {
+    console.error('Failed to submit MP3 answer:', error)
+    emit('complete', {
+      sessionId: props.sessionId,
+      questionIndex: props.currentQuestion!.question_index ?? 0,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
+}
+
+// Submit empty answer (when recording fails)
+const submitEmptyAnswer = (): void => {
+  emit('complete', {
+    sessionId: props.sessionId,
+    questionIndex: props.currentQuestion!.question_index ?? 0,
+    success: false,
+    error: 'Recording failed'
+  })
+}
+
+// Cleanup resources
+const cleanup = (): void => {
+  if (readyTimer) {
+    clearInterval(readyTimer)
+    readyTimer = null
+  }
+
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+
+  // Cleanup MP3 recorder if it exists
+  if (mp3Recorder) {
+    try {
+      mp3Recorder.cleanup()
+    } catch (error) {
+      console.error('Error cleaning up MP3 recorder:', error)
+    }
+    mp3Recorder = null
   }
 }
 </script>

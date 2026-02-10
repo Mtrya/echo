@@ -177,209 +177,203 @@
   </div>
 </template>
 
-<script>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useTranslations } from '../composables/useTranslations.js'
-import { apiUrl } from '../utils/api.js'
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import type { AppConfig, SettingsOptions } from '@/types'
+import { useTranslations } from '@/composables/useTranslations'
+import { apiUrl } from '@/utils/api'
 
-export default {
-  name: 'Settings',
-  emits: ['close-settings', 'settings-updated'],
-  setup(_, { emit }) {
-    const { translate, language } = useTranslations()
-    const currentTab = ref('api')
-    const isTesting = ref(false)
-    const isSaving = ref(false)
-    const apiTestResult = ref(null)
-    const saveResult = ref(null)
+const emit = defineEmits<{
+  'close-settings': []
+  'settings-updated': [settings: AppConfig]
+}>()
 
-    const tabs = computed(() => [
-      { id: 'api', name: translate('settings.tabs.api') },
-      { id: 'models', name: translate('settings.tabs.models') },
-      { id: 'timers', name: translate('settings.tabs.timers') },
-      { id: 'language', name: translate('settings.tabs.language') }
-    ])
+const { translate, language } = useTranslations()
 
-    const settings = reactive({
-      api: {
-        dashscope_key: ''
-      },
-      models: {
-        omni_model: 'qwen3-omni-flash',
-        vision_model: 'qwen3-vl-plus',
-        instruction_voice: 'Elias',
-        response_voice: 'Cherry'
-      },
-      time_limits: {
-        multiple_choice: 30,
-        read_aloud: 15,
-        quick_response: 15,
-        translation: 30
-      },
-      ui: {
-        language: 'en'
-      }
-      })
+const currentTab = ref<string>('api')
+const isTesting = ref<boolean>(false)
+const isSaving = ref<boolean>(false)
+const apiTestResult = ref<{ success: boolean; message?: string; error?: string } | null>(null)
+const saveResult = ref<{ success: boolean; message: string } | null>(null)
 
-    const originalSettings = reactive({})
-    const options = reactive({
-      omni_models: [],
-      vision_models: [],
-      voice_options: {}
-    })
+const tabs = computed(() => [
+  { id: 'api', name: translate('settings.tabs.api') },
+  { id: 'models', name: translate('settings.tabs.models') },
+  { id: 'timers', name: translate('settings.tabs.timers') },
+  { id: 'language', name: translate('settings.tabs.language') }
+])
 
-    const availableVoices = computed(() => {
-      return options.voice_options[settings.models.omni_model] || options.voice_options['qwen3-omni-flash'] || []
-    })
+const settings = reactive<AppConfig>({
+  api: {
+    dashscope_key: ''
+  },
+  models: {
+    omni_model: 'qwen3-omni-flash',
+    vision_model: 'qwen3-vl-plus',
+    instruction_voice: 'Elias',
+    response_voice: 'Cherry'
+  },
+  time_limits: {
+    multiple_choice: 30,
+    read_aloud: 15,
+    quick_response: 15,
+    translation: 30
+  },
+  ui: {
+    language: 'en'
+  }
+})
 
-  
-    const hasChanges = computed(() => {
-      return JSON.stringify(settings) !== JSON.stringify(originalSettings)
-    })
+const originalSettings = reactive<AppConfig>({
+  api: {
+    dashscope_key: ''
+  },
+  models: {
+    omni_model: 'qwen3-omni-flash',
+    vision_model: 'qwen3-vl-plus',
+    instruction_voice: 'Elias',
+    response_voice: 'Cherry'
+  },
+  time_limits: {
+    multiple_choice: 30,
+    read_aloud: 15,
+    quick_response: 15,
+    translation: 30
+  },
+  ui: {
+    language: 'en'
+  }
+})
 
-    const loadSettings = async () => {
-      try {
-        const response = await fetch(apiUrl('/settings'))
-        const data = await response.json()
+const options = reactive<SettingsOptions>({
+  omni_models: [],
+  vision_models: [],
+  voice_options: {}
+})
 
-        if (data.success) {
-          // Merge with defaults
-          Object.assign(settings, data.config)
-          Object.assign(originalSettings, JSON.parse(JSON.stringify(data.config)))
-          Object.assign(options, data.options)
+const availableVoices = computed(() => {
+  return options.voice_options[settings.models.omni_model] || options.voice_options['qwen3-omni-flash'] || []
+})
 
-          // Load language preference from settings if available
-          if (data.config.ui && data.config.ui.language) {
-            language.value = data.config.ui.language
-          }
-          }
-      } catch (error) {
-        console.error('Failed to load settings:', error)
-      }
-    }
+const loadSettings = async () => {
+  try {
+    const response = await fetch(apiUrl('/settings'))
+    const data = await response.json()
 
-    const testApiConnection = async () => {
-      if (!settings.api.dashscope_key) return
+    if (data.success) {
+      // Merge with defaults
+      Object.assign(settings, data.config)
+      Object.assign(originalSettings, JSON.parse(JSON.stringify(data.config)))
+      Object.assign(options, data.options)
 
-      isTesting.value = true
-      apiTestResult.value = null
-
-      try {
-        const response = await fetch(apiUrl('/test-api'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ api_key: settings.api.dashscope_key })
-        })
-
-        const result = await response.json()
-        apiTestResult.value = result
-      } catch (error) {
-        apiTestResult.value = {
-          success: false,
-          error: 'Connection failed'
-        }
-      } finally {
-        isTesting.value = false
+      // Load language preference from settings if available
+      if (data.config.ui && data.config.ui.language) {
+        language.value = data.config.ui.language
       }
     }
-
-    const updateVoiceOptions = () => {
-      // Reset voices if they're not available for the selected model
-      if (!availableVoices.value.includes(settings.models.instruction_voice)) {
-        settings.models.instruction_voice = availableVoices.value[0] || 'Elias'
-      }
-      if (!availableVoices.value.includes(settings.models.response_voice)) {
-        settings.models.response_voice = availableVoices.value[0] || 'Cherry'
-      }
-    }
-
-    const saveSettings = async () => {
-      isSaving.value = true
-      saveResult.value = null
-
-      try {
-        // Create a clean copy of settings to avoid Vue reactive objects
-        const cleanSettings = JSON.parse(JSON.stringify(settings))
-        const configToSave = { config: cleanSettings }
-        console.log('Saving settings - Sending to backend:', JSON.stringify(configToSave, null, 2))
-
-        const response = await fetch(apiUrl('/settings'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(configToSave)
-        })
-
-        console.log('Save settings response status:', response.status)
-        const result = await response.json()
-        console.log('Save settings response data:', result)
-
-        if (result.success) {
-          saveResult.value = { success: true, message: 'Settings saved successfully' }
-          Object.assign(originalSettings, JSON.parse(JSON.stringify(settings)))
-          emit('settings-updated', settings)
-          emit('close-settings')
-        } else {
-          saveResult.value = { success: false, message: result.errors.join(', ') }
-        }
-      } catch (error) {
-        saveResult.value = { success: false, message: 'Failed to save settings' }
-      } finally {
-        isSaving.value = false
-      }
-    }
-
-    const resetToDefaults = () => {
-      // Preserve API key, reset other settings to defaults
-      const currentApiKey = settings.api.dashscope_key
-      settings.models.omni_model = 'qwen3-omni-flash'
-      settings.models.vision_model = 'qwen3-vl-plus'
-      settings.models.instruction_voice = 'Elias'
-      settings.models.response_voice = 'Cherry'
-      settings.time_limits.multiple_choice = 20
-      settings.time_limits.read_aloud = 10
-      settings.time_limits.quick_response = 10
-      settings.time_limits.translation = 20
-      settings.ui.language = 'en'
-      // Restore API key
-      settings.api.dashscope_key = currentApiKey
-    }
-
-    const updateLanguage = (newLanguage) => {
-      settings.ui.language = newLanguage
-      language.value = newLanguage
-    }
-
-
-    onMounted(() => {
-      loadSettings()
-    })
-
-    return {
-      currentTab,
-      tabs,
-      settings,
-      originalSettings,
-      options,
-      availableVoices,
-      isTesting,
-      isSaving,
-      apiTestResult,
-      saveResult,
-      hasChanges,
-      testApiConnection,
-      updateVoiceOptions,
-      saveSettings,
-      resetToDefaults,
-      translate,
-      language,
-      updateLanguage
-    }
+  } catch (error) {
+    console.error('Failed to load settings:', error)
   }
 }
+
+const testApiConnection = async () => {
+  if (!settings.api.dashscope_key) return
+
+  isTesting.value = true
+  apiTestResult.value = null
+
+  try {
+    const response = await fetch(apiUrl('/test-api'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ api_key: settings.api.dashscope_key })
+    })
+
+    const result = await response.json()
+    apiTestResult.value = result
+  } catch (error) {
+    apiTestResult.value = {
+      success: false,
+      error: 'Connection failed'
+    }
+  } finally {
+    isTesting.value = false
+  }
+}
+
+const updateVoiceOptions = () => {
+  // Reset voices if they're not available for the selected model
+  if (!availableVoices.value.includes(settings.models.instruction_voice)) {
+    settings.models.instruction_voice = availableVoices.value[0] || 'Elias'
+  }
+  if (!availableVoices.value.includes(settings.models.response_voice)) {
+    settings.models.response_voice = availableVoices.value[0] || 'Cherry'
+  }
+}
+
+const saveSettings = async () => {
+  isSaving.value = true
+  saveResult.value = null
+
+  try {
+    // Create a clean copy of settings to avoid Vue reactive objects
+    const cleanSettings = JSON.parse(JSON.stringify(settings))
+    const configToSave = { config: cleanSettings }
+    console.log('Saving settings - Sending to backend:', JSON.stringify(configToSave, null, 2))
+
+    const response = await fetch(apiUrl('/settings'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(configToSave)
+    })
+
+    console.log('Save settings response status:', response.status)
+    const result = await response.json()
+    console.log('Save settings response data:', result)
+
+    if (result.success) {
+      saveResult.value = { success: true, message: 'Settings saved successfully' }
+      Object.assign(originalSettings, JSON.parse(JSON.stringify(settings)))
+      emit('settings-updated', settings)
+      emit('close-settings')
+    } else {
+      saveResult.value = { success: false, message: result.errors.join(', ') }
+    }
+  } catch (error) {
+    saveResult.value = { success: false, message: 'Failed to save settings' }
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const resetToDefaults = () => {
+  // Preserve API key, reset other settings to defaults
+  const currentApiKey = settings.api.dashscope_key
+  settings.models.omni_model = 'qwen3-omni-flash'
+  settings.models.vision_model = 'qwen3-vl-plus'
+  settings.models.instruction_voice = 'Elias'
+  settings.models.response_voice = 'Cherry'
+  settings.time_limits.multiple_choice = 20
+  settings.time_limits.read_aloud = 10
+  settings.time_limits.quick_response = 10
+  settings.time_limits.translation = 20
+  settings.ui.language = 'en'
+  // Restore API key
+  settings.api.dashscope_key = currentApiKey
+}
+
+const updateLanguage = (newLanguage: 'en' | 'zh') => {
+  settings.ui.language = newLanguage
+  language.value = newLanguage
+}
+
+onMounted(() => {
+  loadSettings()
+})
 </script>
 
 <style scoped>
