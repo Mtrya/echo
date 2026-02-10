@@ -493,4 +493,7 @@ export const translations = {
       optional: "选填"
     }
   }
-}
+} as const satisfies Record<string, Record<string, unknown>>
+
+export type Language = keyof typeof translations
+export type TranslationKeys = typeof translations.en

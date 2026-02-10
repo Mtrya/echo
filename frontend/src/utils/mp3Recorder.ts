@@ -3,24 +3,29 @@
  * Records audio from microphone and encodes to MP3 format using lamejs
  */
 
-import lamejs from 'lamejsfix'
+import { Mp3Encoder } from 'lamejsfix'
 
-class Mp3Recorder {
-  constructor() {
-    this.mediaStream = null
-    this.audioContext = null
-    this.processor = null
-    this.mp3Encoder = null
-    this.mp3Data = []
-    this.isRecording = false
-    this.sampleRate = 44100
-    this.bitRate = 128
+// Extend Window interface for webkitAudioContext
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext
   }
+}
+
+export class Mp3Recorder {
+  private mediaStream: MediaStream | null = null
+  private audioContext: AudioContext | null = null
+  private processor: ScriptProcessorNode | null = null
+  private mp3Encoder: Mp3Encoder | null = null
+  private mp3Data: BlobPart[] = []
+  private isRecording = false
+  private readonly sampleRate = 44100
+  private readonly bitRate = 128
 
   /**
    * Initialize the MP3 recorder and request microphone access
    */
-  async start() {
+  async start(): Promise<void> {
     if (this.isRecording) {
       throw new Error('Recording is already in progress')
     }
@@ -43,18 +48,19 @@ class Mp3Recorder {
       this.processor = this.audioContext.createScriptProcessor(4096, 1, 1)
 
       // Initialize MP3 encoder
-      this.mp3Encoder = new lamejs.Mp3Encoder(1, this.sampleRate, this.bitRate)
+      this.mp3Encoder = new Mp3Encoder(1, this.sampleRate, this.bitRate)
       this.mp3Data = []
 
       // Process audio chunks
-      this.processor.onaudioprocess = (event) => {
+      this.processor.onaudioprocess = (event: AudioProcessingEvent) => {
         const inputBuffer = event.inputBuffer
-        const samples = this._floatToInt16(inputBuffer.getChannelData(0))
+        const samples = this.floatToInt16(inputBuffer.getChannelData(0))
 
         // Encode audio chunk to MP3
-        const mp3buf = this.mp3Encoder.encodeBuffer(samples)
+        const mp3buf = this.mp3Encoder!.encodeBuffer(samples)
         if (mp3buf.length > 0) {
-          this.mp3Data.push(mp3buf)
+          // Cast Int8Array to BlobPart
+          this.mp3Data.push(mp3buf as unknown as BlobPart)
         }
       }
 
@@ -73,32 +79,32 @@ class Mp3Recorder {
 
   /**
    * Stop recording and return MP3 blob
-   * @returns {Promise<Blob>} MP3 audio blob
    */
-  async stop() {
+  async stop(): Promise<Blob> {
     if (!this.isRecording) {
       throw new Error('No recording in progress')
     }
 
     try {
       // Finalize MP3 encoding
-      const mp3buf = this.mp3Encoder.flush()
+      const mp3buf = this.mp3Encoder!.flush()
       if (mp3buf.length > 0) {
-        this.mp3Data.push(mp3buf)
+        // Cast Int8Array to BlobPart
+        this.mp3Data.push(mp3buf as unknown as BlobPart)
       }
 
       // Create MP3 blob from encoded data
       const mp3Blob = new Blob(this.mp3Data, { type: 'audio/mp3' })
 
       // Cleanup resources
-      this._cleanup()
+      this.cleanup()
 
       console.log('MP3 recording stopped, blob size:', mp3Blob.size, 'bytes')
       return mp3Blob
 
     } catch (error) {
       console.error('Failed to stop MP3 recording:', error)
-      this._cleanup()
+      this.cleanup()
       throw error
     }
   }
@@ -106,7 +112,7 @@ class Mp3Recorder {
   /**
    * Clean up audio resources
    */
-  _cleanup() {
+  cleanup(): void {
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(track => track.stop())
       this.mediaStream = null
@@ -129,14 +135,13 @@ class Mp3Recorder {
 
   /**
    * Convert Float32Array to Int16Array for MP3 encoding
-   * @param {Float32Array} floatArray
-   * @returns {Int16Array}
    */
-  _floatToInt16(floatArray) {
+  private floatToInt16(floatArray: Float32Array): Int16Array {
     const int16Array = new Int16Array(floatArray.length)
     for (let i = 0; i < floatArray.length; i++) {
       // Convert float (-1 to 1) to 16-bit integer (-32768 to 32767)
-      let s = Math.max(-1, Math.min(1, floatArray[i]))
+      const sample = floatArray[i] ?? 0
+      let s = Math.max(-1, Math.min(1, sample))
       s = s < 0 ? s * 32768 : s * 32767
       int16Array[i] = s
     }
@@ -145,25 +150,36 @@ class Mp3Recorder {
 
   /**
    * Check if browser supports required features
-   * @returns {boolean}
    */
-  static isSupported() {
-    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
-             (window.AudioContext || window.webkitAudioContext))
+  static isSupported(): boolean {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return false
+    }
+    // Check for AudioContext support (using bracket notation to avoid TS always-true error)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any
+    return !!(win.AudioContext || win.webkitAudioContext)
   }
 }
 
 /**
  * Convert blob to base64 string
- * @param {Blob} blob
- * @returns {Promise<string>}
  */
-function blobToBase64(blob) {
+export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onloadend = () => {
       // Extract base64 data from the result (remove data URL prefix)
-      const base64 = reader.result.split(',')[1]
+      const result = reader.result as string | null
+      if (result === null) {
+        reject(new Error('Failed to read blob as data URL'))
+        return
+      }
+      const base64 = result.split(',')[1]
+      if (base64 === undefined) {
+        reject(new Error('Failed to extract base64 data'))
+        return
+      }
       resolve(base64)
     }
     reader.onerror = reject
@@ -171,5 +187,4 @@ function blobToBase64(blob) {
   })
 }
 
-export { Mp3Recorder, blobToBase64 }
 export default Mp3Recorder
