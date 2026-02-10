@@ -70,6 +70,10 @@ config.yaml
 !config.yaml.example
 completed_exams.json
 
+# Tauri
+frontend/src-tauri/target/
+frontend/src-tauri/binaries/
+
 # Development files
 test_files
 
