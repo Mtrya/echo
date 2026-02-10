@@ -66,6 +66,7 @@
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 import Mp3Recorder from '../utils/mp3Recorder.js'
 
 export default {
@@ -137,7 +138,7 @@ export default {
         isPlaying.value = true
 
         if (testAudioPlayer.value) {
-          testAudioPlayer.value.src = '/audio_cache/tts/audio-test.mp3'
+          testAudioPlayer.value.src = apiUrl('/audio_cache/tts/audio-test.mp3')
           testAudioPlayer.value.onended = () => {
             isPlaying.value = false
           }
@@ -316,7 +317,7 @@ export default {
 
       try {
         isCheckingStatus.value = true
-        const response = await fetch(`/session/${props.sessionId}/audio-status`)
+        const response = await fetch(apiUrl(`/session/${props.sessionId}/audio-status`))
         const data = await response.json()
 
         if (data.audio_generation === 'completed') {

@@ -186,6 +186,7 @@
 <script>
 import { ref } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 
 export default {
   name: 'FileConverter',
@@ -287,7 +288,7 @@ export default {
         const filenames = selectedFiles.value.map(file => file.name)
 
         // Send to backend
-        const response = await fetch('/convert/file', {
+        const response = await fetch(apiUrl('/convert/file'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -378,7 +379,7 @@ export default {
       }
 
       try {
-        const renameResponse = await fetch('/rename-exam', {
+        const renameResponse = await fetch(apiUrl('/rename-exam'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -412,7 +413,7 @@ export default {
       const examFilename = examToDelete.value
 
       try {
-        const response = await fetch('/delete-exam', {
+        const response = await fetch(apiUrl('/delete-exam'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

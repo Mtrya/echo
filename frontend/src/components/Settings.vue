@@ -180,6 +180,7 @@
 <script>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 
 export default {
   name: 'Settings',
@@ -238,7 +239,7 @@ export default {
 
     const loadSettings = async () => {
       try {
-        const response = await fetch('/settings')
+        const response = await fetch(apiUrl('/settings'))
         const data = await response.json()
 
         if (data.success) {
@@ -264,7 +265,7 @@ export default {
       apiTestResult.value = null
 
       try {
-        const response = await fetch('/test-api', {
+        const response = await fetch(apiUrl('/test-api'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -304,7 +305,7 @@ export default {
         const configToSave = { config: cleanSettings }
         console.log('Saving settings - Sending to backend:', JSON.stringify(configToSave, null, 2))
 
-        const response = await fetch('/settings', {
+        const response = await fetch(apiUrl('/settings'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

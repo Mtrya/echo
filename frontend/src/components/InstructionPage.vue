@@ -9,6 +9,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { apiUrl } from '../utils/api.js'
 
 export default {
   name: 'InstructionPage',

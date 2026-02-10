@@ -5,8 +5,16 @@
       <h1>{{ translate('header.title') }}</h1>
     </header>
 
+    <!-- Loading screen while waiting for backend in Tauri mode -->
+    <main v-if="!backendReady" class="main-content">
+      <div class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>{{ translate('common.loading') || 'Starting up...' }}</p>
+      </div>
+    </main>
+
     <!-- Main Content Area -->
-    <main class="main-content">
+    <main v-else class="main-content">
       <!-- Home Page -->
       <div v-if="currentPage === 'home'">
         <HomePage ref="homePage" @start-exam="handleStartExam" @file-converter="currentPage = 'file-converter'" @open-settings="showSettings = true" />
@@ -108,8 +116,9 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTranslations } from './composables/useTranslations.js'
+import { apiUrl, setApiBaseUrl } from './utils/api.js'
 import HomePage from './components/HomePage.vue'
 import AudioTest from './components/AudioTest.vue'
 import InstructionPage from './components/InstructionPage.vue'
@@ -148,7 +157,21 @@ export default {
     const currentInstructionAudio = ref(null)
     const currentQuestionType = ref(null)
     const homePage = ref(null)
-    // Theme feature removed
+    // In Tauri mode, wait for backend-ready event before rendering content
+    const backendReady = ref(!window.__TAURI__)
+
+    // Set up Tauri backend-ready listener
+    onMounted(async () => {
+      if (window.__TAURI__) {
+        const { listen } = await import('@tauri-apps/api/event')
+        listen('backend-ready', (event) => {
+          const port = event.payload
+          console.log('Backend ready on port:', port)
+          setApiBaseUrl(`http://127.0.0.1:${port}`)
+          backendReady.value = true
+        })
+      }
+    })
 
     // Handle exam start event from components
     const handleStartExam = async (examData) => {
@@ -162,7 +185,7 @@ export default {
       } else if (examData.examFile) {
         // New exam from file converter - start session first
         try {
-          const response = await fetch('/session/start', {
+          const response = await fetch(apiUrl('/session/start'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -209,7 +232,7 @@ export default {
     const getNextQuestion = async () => {
       try {
         console.log('Fetching next question for session:', sessionId.value)
-        const response = await fetch(`/session/${sessionId.value}/question`)
+        const response = await fetch(apiUrl(`/session/${sessionId.value}/question`))
         const data = await response.json()
 
         console.log('Question response:', data)
@@ -228,7 +251,7 @@ export default {
             // Show instruction page first
             currentQuestionType.value = data.question.type
             currentInstruction.value = data.instruction
-            currentInstructionAudio.value = data.instruct_audio_file_path
+            currentInstructionAudio.value = data.instruct_audio_file_path ? apiUrl(data.instruct_audio_file_path) : null
             currentPage.value = 'instruction'
             console.log('Navigating to instruction page for section:', data.question.type)
           } else {
@@ -328,6 +351,7 @@ export default {
       handleInstructionComplete,
       handleQuestionComplete,
       getNextQuestion,
+      backendReady,
       handleNewExam,
       handleGoHome,
       handleSettingsUpdated
@@ -396,6 +420,32 @@ export default {
 .btn-secondary:hover {
   background: white;
   transform: translateY(-2px);
+}
+
+/* Loading Screen */
+.loading-screen {
+  text-align: center;
+  color: #16a34a;
+}
+
+.loading-screen p {
+  margin-top: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(22, 163, 74, 0.2);
+  border-top-color: #16a34a;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Placeholder Page */

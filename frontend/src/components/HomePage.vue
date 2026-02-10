@@ -68,6 +68,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 
 export default {
   name: 'HomePage',
@@ -96,7 +97,7 @@ export default {
     // Check API key status
     const checkApiKeyStatus = async () => {
       try {
-        const response = await fetch('/api-key-status')
+        const response = await fetch(apiUrl('/api-key-status'))
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
@@ -122,7 +123,7 @@ export default {
     // Load completed exams
     const loadCompletedExams = async () => {
       try {
-        const response = await fetch('/exams/completed')
+        const response = await fetch(apiUrl('/exams/completed'))
         const data = await response.json()
         completedExams.value = data.completed_exams || []
       } catch (error) {
@@ -135,7 +136,7 @@ export default {
     const loadExams = async () => {
       try {
         const includeCompleted = showCompletedExams.value
-        const response = await fetch(`/exams/list?include_completed=${includeCompleted}`)
+        const response = await fetch(apiUrl(`/exams/list?include_completed=${includeCompleted}`))
         const data = await response.json()
         availableExams.value = data.exams || []
       } catch (error) {
@@ -186,7 +187,7 @@ export default {
       }
 
       try {
-        const response = await fetch('/session/start', {
+        const response = await fetch(apiUrl('/session/start'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

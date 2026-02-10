@@ -63,6 +63,7 @@
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 
 export default {
   name: 'MultipleChoice',
@@ -159,7 +160,7 @@ export default {
     // Submit answer to backend
     const submitToBackend = async (answerText) => {
       try {
-        const response = await fetch(`/session/${props.sessionId}/answer`, {
+        const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

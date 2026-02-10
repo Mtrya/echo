@@ -62,6 +62,7 @@
 <script>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 import Mp3Recorder, { blobToBase64 } from '../utils/mp3Recorder.js'
 
 export default {
@@ -250,7 +251,7 @@ export default {
         const base64Audio = await blobToBase64(mp3Blob)
 
         // Submit as JSON with base64 encoded audio data
-        const response = await fetch(`/session/${props.sessionId}/answer`, {
+        const response = await fetch(apiUrl(`/session/${props.sessionId}/answer`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

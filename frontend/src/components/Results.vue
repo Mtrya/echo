@@ -98,6 +98,7 @@
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useTranslations } from '../composables/useTranslations.js'
+import { apiUrl } from '../utils/api.js'
 
 export default {
   name: 'Results',
@@ -165,7 +166,7 @@ export default {
       try {
         isCheckingStatus.value = true
         console.log('Loading results for session:', props.sessionId)
-        const response = await fetch(`/session/${props.sessionId}/results`)
+        const response = await fetch(apiUrl(`/session/${props.sessionId}/results`))
         console.log('Response status:', response.status)
 
         // Check if timeout occurred while waiting for response
@@ -313,7 +314,7 @@ export default {
         }
 
         // Construct the full URL for the audio file
-        const audioUrl = `/audio-cache/${audioPath}`
+        const audioUrl = apiUrl(`/audio_cache/${audioPath}`)
 
         // Set up audio player
         audioPlayer.value.src = audioUrl
