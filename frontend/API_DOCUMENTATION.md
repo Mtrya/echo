@@ -136,7 +136,7 @@ Get current question with audio.
     "text": "This is a multiple choice section.",
     "tts": "This is a multiple choice section."
   },
-  "instruction_audio_file_path": "tts/f4496987dabd9f56fa5c336c2ab63ff0.mp3"
+  "instruct_audio_file_path": "tts/f4496987dabd9f56fa5c336c2ab63ff0.mp3"
 }
 ```
 
