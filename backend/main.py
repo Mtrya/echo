@@ -280,23 +280,25 @@ async def get_available_voices(omni_model: str):
         raise HTTPException(status_code=500, detail=f"Error getting voices: {str(e)}")
 
 # Mount frontend static files (moved after API endpoints to avoid conflicts)
-if getattr(sys, 'frozen', False):
-    # Running as PyInstaller bundle - frontend files are in the bundled directory
-    bundled_frontend_path = Path(sys._MEIPASS) / "frontend" / "dist"
-    if bundled_frontend_path.exists():
-        app.mount("/", StaticFiles(directory=str(bundled_frontend_path), html=True), name="frontend")
+# In Tauri mode, Tauri serves the frontend — only mount API and audio_cache
+if not os.environ.get('TAURI_MODE'):
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle - frontend files are in the bundled directory
+        bundled_frontend_path = Path(sys._MEIPASS) / "frontend" / "dist"
+        if bundled_frontend_path.exists():
+            app.mount("/", StaticFiles(directory=str(bundled_frontend_path), html=True), name="frontend")
+        else:
+            print(f"Warning: Frontend directory not found at {bundled_frontend_path}")
     else:
-        print(f"Warning: Frontend directory not found at {bundled_frontend_path}")
-else:
-    # Development environment
-    frontend_path = paths.base_path / "frontend" / "dist"
-    if frontend_path.exists():
-        app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
-    else:
-        # Fallback for development when running from source
-        dev_frontend_path = Path(__file__).parent.parent / "frontend" / "dist"
-        if dev_frontend_path.exists():
-            app.mount("/", StaticFiles(directory=str(dev_frontend_path), html=True), name="frontend")
+        # Development environment
+        frontend_path = paths.base_path / "frontend" / "dist"
+        if frontend_path.exists():
+            app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+        else:
+            # Fallback for development when running from source
+            dev_frontend_path = Path(__file__).parent.parent / "frontend" / "dist"
+            if dev_frontend_path.exists():
+                app.mount("/", StaticFiles(directory=str(dev_frontend_path), html=True), name="frontend")
 
 # Error handler
 @app.exception_handler(Exception)

@@ -5,6 +5,7 @@ Handles the complete application lifecycle including setup, directory management
 
 import sys
 import os
+import argparse
 import webbrowser
 import threading
 import time
@@ -96,12 +97,28 @@ def setup_signal_handler():
         signal.signal(signal.SIGTERM, signal_handler)
 
 
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Echo Application Launcher")
+    parser.add_argument('--port', type=int, default=None,
+                        help='Use a specific port instead of auto-detecting')
+    parser.add_argument('--tauri', action='store_true',
+                        help='Run as Tauri sidecar (skip browser launch)')
+    return parser.parse_args()
+
+
 def main():
     """Main application entry point."""
+    args = parse_args()
+
     print("Starting Echo Application...")
     print(f"Python version: {sys.version}")
     print(f"Platform: {sys.platform}")
     print(f"Frozen (packaged): {getattr(sys, 'frozen', False)}")
+
+    if args.tauri:
+        os.environ['TAURI_MODE'] = '1'
+        print("Running in Tauri sidecar mode")
 
     # Set up SSL certificates for HTTPS connections
     try:
@@ -120,8 +137,12 @@ def main():
         print(f"App data directory: {paths.base_path}")
 
         # Find available port
-        print("Finding available port...")
-        port = find_available_port()
+        if args.port:
+            port = args.port
+            print(f"Using specified port {port}")
+        else:
+            print("Finding available port...")
+            port = find_available_port()
         print(f"Starting server on port {port}")
 
         # Set working directory to app data for consistent relative paths
@@ -137,15 +158,17 @@ def main():
         from backend.main import app
         print("FastAPI app imported successfully")
 
-        # Launch browser in separate thread
-        launch_browser(port)
+        # Launch browser in separate thread (skip in Tauri mode)
+        if not args.tauri:
+            launch_browser(port)
 
         # Print startup message
         print("=" * 50)
         print("Echo is starting up...")
         print(f"Application data directory: {paths.base_path}")
         print(f"Server will be available at: http://127.0.0.1:{port}")
-        print("Press Ctrl+C to stop the server")
+        if not args.tauri:
+            print("Press Ctrl+C to stop the server")
         print("=" * 50)
 
         # Run the server with direct app reference
