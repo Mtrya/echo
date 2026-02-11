@@ -1,6 +1,6 @@
+use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
-use std::sync::Mutex;
 
 struct SidecarState {
     child: Option<tauri_plugin_shell::process::CommandChild>,
@@ -9,6 +9,8 @@ struct SidecarState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .manage(Mutex::new(SidecarState { child: None }))
         .setup(|app| {

@@ -222,6 +222,19 @@ export const translations = {
       timeoutExplanation: "This question could not be processed due to a timeout. Please check your internet connection and try again."
     },
 
+    // Update
+    update: {
+      available: "Update Available",
+      newVersion: "Version {0} is available. You are on {1}.",
+      releaseNotes: "Release Notes:",
+      updateNow: "Update Now",
+      later: "Later",
+      downloading: "Downloading update...",
+      installing: "Installing update, app will restart...",
+      failed: "Update failed. Please try again later.",
+      upToDate: "You're on the latest version."
+    },
+
     // Common
     common: {
       loading: "Loading...",
@@ -467,6 +480,19 @@ export const translations = {
       questionProcessingFailed: "题目处理失败",
       processingTimeout: "处理超时 - 未收到答案",
       timeoutExplanation: "由于处理超时，无法处理此题。请检查网络连接后重试。"
+    },
+
+    // Update
+    update: {
+      available: "发现新版本",
+      newVersion: "新版本 {0} 已发布，当前版本为 {1}。",
+      releaseNotes: "更新说明：",
+      updateNow: "立即更新",
+      later: "稍后再说",
+      downloading: "正在下载更新...",
+      installing: "正在安装更新，应用即将重启...",
+      failed: "更新失败，请稍后重试。",
+      upToDate: "已是最新版本。"
     },
 
     // Common

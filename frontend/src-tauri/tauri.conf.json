@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Echo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.echo.app",
   "build": {
     "frontendDist": "../dist",
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:*; media-src 'self' http://localhost:* http://127.0.0.1:* blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* https://gitee.com https://github.com; media-src 'self' http://localhost:* http://127.0.0.1:* blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {
@@ -35,7 +35,21 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "SimpChinese"]
+      }
+    }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://gitee.com/KaUpane/echo/releases/download/latest/latest.json",
+        "https://github.com/Mtrya/echo/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENCRTY3MzQ1QjM3MkZGMkUKUldRdS8zS3pSWFBteThzVThCK0REZkNDT0ZucUdvb2FjVGQ2NWVrSTJXL2JzVytmZ3V0YThNY0YK"
+    }
+  }
 }

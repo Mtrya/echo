@@ -112,6 +112,38 @@
         />
       </div>
     </div>
+
+    <!-- Update Modal -->
+    <div v-if="updateState.status === 'available'" class="settings-modal">
+      <div class="update-modal-content">
+        <h2>{{ translate('update.available') }}</h2>
+        <p>{{ translate('update.newVersion', [updateState.version ?? '', updateState.currentVersion ?? '']) }}</p>
+        <div v-if="updateState.notes" class="update-notes">
+          <strong>{{ translate('update.releaseNotes') }}</strong>
+          <p>{{ updateState.notes }}</p>
+        </div>
+        <div class="update-actions">
+          <button @click="updateState.status = 'idle'" class="btn btn-secondary">{{ translate('update.later') }}</button>
+          <button @click="updateState.install?.()" class="btn btn-primary">{{ translate('update.updateNow') }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Update downloading overlay -->
+    <div v-if="updateState.status === 'downloading' || updateState.status === 'installing'" class="settings-modal">
+      <div class="update-modal-content">
+        <div class="loading-spinner"></div>
+        <p>{{ updateState.status === 'downloading' ? translate('update.downloading') : translate('update.installing') }}</p>
+      </div>
+    </div>
+
+    <!-- Update error -->
+    <div v-if="updateState.status === 'error'" class="settings-modal">
+      <div class="update-modal-content">
+        <p class="update-error">{{ translate('update.failed') }}</p>
+        <button @click="updateState.status = 'idle'" class="btn btn-secondary">{{ translate('common.close') }}</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -130,6 +162,7 @@ import Results from '@/components/Results.vue'
 import FileConverter from '@/components/FileConverter.vue'
 import Settings from '@/components/Settings.vue'
 import type { Question, Instruction, GetQuestionResponse, StartSessionResponse, AppConfig } from '@/types'
+import { checkForUpdates, type UpdateState } from '@/utils/updater'
 
 type PageType = 'home' | 'file-converter' | 'audio-test' | 'instruction' | 'read-aloud' | 'multiple-choice' | 'quick-response' | 'translation' | 'results'
 type QuestionType = 'read_aloud' | 'multiple_choice' | 'quick_response' | 'translation'
@@ -155,6 +188,8 @@ const currentQuestionType = ref<QuestionType | null>(null)
 const homePage = ref<InstanceType<typeof HomePage> | null>(null)
 // In Tauri mode, wait for backend-ready event before rendering content
 const backendReady = ref<boolean>(!window.__TAURI__)
+// Update state
+const updateState = ref<UpdateState>({ status: 'idle' })
 
 // Set up Tauri backend-ready listener
 onMounted(async () => {
@@ -166,6 +201,8 @@ onMounted(async () => {
       setApiBaseUrl(`http://127.0.0.1:${port}`)
       backendReady.value = true
     })
+    // Check for updates in background
+    checkForUpdates(updateState)
   }
 })
 
@@ -472,5 +509,43 @@ const handleSettingsUpdated = async (newSettings: AppConfig) => {
   background: white;
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Update Modal */
+.update-modal-content {
+  background: white;
+  border-radius: 10px;
+  padding: 2rem;
+  max-width: 450px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.update-modal-content h2 {
+  color: #16a34a;
+  margin: 0 0 1rem;
+}
+
+.update-notes {
+  text-align: left;
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.update-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.update-error {
+  color: #dc3545;
+  font-weight: 600;
+  margin-bottom: 1rem;
 }
 </style>

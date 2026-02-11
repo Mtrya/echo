@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  release:
-    types: [created]
 
 permissions:
   contents: write
@@ -15,112 +13,276 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ['3.13']
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            sidecar-ext: .exe
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            sidecar-ext: ''
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.13'
 
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '22'
 
-    - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: frontend/src-tauri
+
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y portaudio19-dev python3-dev
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev \
+          patchelf portaudio19-dev
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
-        # Install project dependencies directly from pyproject.toml without building the package
         python -c "
         import tomllib
         with open('pyproject.toml', 'rb') as f:
             data = tomllib.load(f)
         deps = data['project']['dependencies']
-        print('Installing dependencies:', deps)
         import subprocess
         subprocess.run(['pip', 'install'] + deps, check=True)
         "
-        # Install certifi for SSL certificate support
         pip install certifi
 
+    - name: Build sidecar binary
+      run: python scripts/build_sidecar.py
+
     - name: Install frontend dependencies
-      run: |
-        cd frontend
-        npm install
-        cd ..
+      working-directory: frontend
+      run: npm install
 
-    - name: Build frontend
-      run: |
-        cd frontend
-        npm run build
-        cd ..
+    - name: Build Tauri app
+      working-directory: frontend
+      env:
+        TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      run: npx tauri build
 
-    - name: Build executable
-      run: pyinstaller echo.spec --clean --noconfirm
-
-    - name: Create portable package (Linux)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Collect artifacts (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
       run: |
-        mkdir -p dist/echo-portable
-        cp dist/echo dist/echo-portable/
-        chmod +x dist/echo dist/echo-portable/echo
-        cp README.md dist/echo-portable/ 2>/dev/null || true
+        mkdir -p artifacts
+        cp frontend/src-tauri/target/release/bundle/nsis/*.exe artifacts/ || true
+        cp frontend/src-tauri/target/release/bundle/nsis/*.nsis.zip artifacts/ || true
+        cp frontend/src-tauri/target/release/bundle/nsis/*.nsis.zip.sig artifacts/ || true
 
-    - name: Create portable package (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Collect artifacts (Linux)
+      if: runner.os == 'Linux'
       run: |
-        mkdir -p dist/echo-portable
-        copy dist\echo.exe dist\echo-portable\
-        copy README.md dist\echo-portable\ 2>nul || echo README.md not found
+        mkdir -p artifacts
+        cp frontend/src-tauri/target/release/bundle/appimage/*.AppImage artifacts/ || true
+        cp frontend/src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz artifacts/ || true
+        cp frontend/src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig artifacts/ || true
+        cp frontend/src-tauri/target/release/bundle/deb/*.deb artifacts/ || true
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: build-${{ matrix.os }}
-        path: |
-          dist/echo*
-          dist/echo-portable/**
-        retention-days: 1
+        name: build-${{ matrix.target }}
+        path: artifacts/*
+        retention-days: 3
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: always()
 
     steps:
+    - uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
-
-    - name: Clean up existing release (only if triggered by tag)
-      if: github.event_name == 'push'
-      run: |
-        gh release delete ${{ github.ref_name }} --yes || echo "No existing release to delete"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Create/Update Release
-      uses: softprops/action-gh-release@v1
       with:
-        files: |
-          build-ubuntu-latest/*
-          build-windows-latest/*
+        path: artifacts
+        merge-multiple: true
+
+    - name: List artifacts
+      run: ls -la artifacts/
+
+    - name: Get version from tag
+      id: version
+      run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+    - name: Generate latest.json
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        TAG="${GITHUB_REF_NAME}"
+
+        # Read signatures
+        WIN_SIG=""
+        LINUX_SIG=""
+        if [ -f "artifacts/Echo_${VERSION}_x64-setup.nsis.zip.sig" ]; then
+          WIN_SIG=$(cat "artifacts/Echo_${VERSION}_x64-setup.nsis.zip.sig")
+        fi
+        if ls artifacts/*_amd64.AppImage.tar.gz.sig 1>/dev/null 2>&1; then
+          LINUX_SIG=$(cat artifacts/*_amd64.AppImage.tar.gz.sig)
+        fi
+
+        # Build platforms JSON
+        PLATFORMS="{}"
+        if [ -n "$WIN_SIG" ]; then
+          PLATFORMS=$(echo "$PLATFORMS" | jq \
+            --arg sig "$WIN_SIG" \
+            --arg url "https://gitee.com/KaUpane/echo/releases/download/${TAG}/Echo_${VERSION}_x64-setup.nsis.zip" \
+            '. + {"windows-x86_64": {"signature": $sig, "url": $url}}')
+        fi
+        if [ -n "$LINUX_SIG" ]; then
+          APPIMAGE_NAME=$(basename artifacts/*_amd64.AppImage.tar.gz .sig 2>/dev/null | head -1)
+          PLATFORMS=$(echo "$PLATFORMS" | jq \
+            --arg sig "$LINUX_SIG" \
+            --arg url "https://gitee.com/KaUpane/echo/releases/download/${TAG}/${APPIMAGE_NAME}" \
+            '. + {"linux-x86_64": {"signature": $sig, "url": $url}}')
+        fi
+
+        # Write latest.json
+        jq -n \
+          --arg version "$VERSION" \
+          --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          --argjson platforms "$PLATFORMS" \
+          '{version: $version, pub_date: $pub_date, platforms: $platforms}' \
+          > artifacts/latest.json
+
+        echo "Generated latest.json:"
+        cat artifacts/latest.json
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: artifacts/*
         draft: false
         prerelease: false
-        generate_release_notes: ${{ github.event_name == 'push' }}  # Only generate notes if triggered by tag push
+        generate_release_notes: true
         tag_name: ${{ github.ref_name }}
         name: Echo ${{ github.ref_name }}
-        # If release was created via gh release, preserve its notes and update with binaries
-        append_body: ${{ github.event_name == 'release' }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Publish to Gitee Release
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_PERSONAL_ACCESS_TOKEN }}
+        TAG: ${{ github.ref_name }}
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        OWNER="KaUpane"
+        REPO="echo"
+
+        # Delete existing release for this tag (if re-running)
+        EXISTING=$(curl -s "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")
+        EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
+        if [ -n "$EXISTING_ID" ]; then
+          echo "Deleting existing Gitee release ${EXISTING_ID}..."
+          curl -s -X DELETE "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases/${EXISTING_ID}?access_token=${GITEE_TOKEN}"
+        fi
+
+        # Create release
+        echo "Creating Gitee release for ${TAG}..."
+        RELEASE_RESPONSE=$(curl -s -X POST "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"access_token\": \"${GITEE_TOKEN}\",
+            \"tag_name\": \"${TAG}\",
+            \"name\": \"Echo ${TAG}\",
+            \"body\": \"Automated release for ${TAG}. Download the installer for your platform below.\",
+            \"prerelease\": false
+          }")
+
+        RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id')
+        if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+          echo "Failed to create Gitee release!"
+          echo "$RELEASE_RESPONSE"
+          exit 1
+        fi
+        echo "Created Gitee release ID: ${RELEASE_ID}"
+
+        # Upload each artifact
+        for FILE in artifacts/*; do
+          FILENAME=$(basename "$FILE")
+          echo "Uploading ${FILENAME} to Gitee..."
+          curl -s -X POST "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/attach_files" \
+            -H "Content-Type: multipart/form-data" \
+            -F "access_token=${GITEE_TOKEN}" \
+            -F "file=@${FILE}" || echo "Warning: failed to upload ${FILENAME}"
+        done
+
+        echo "Gitee release published successfully!"
+
+    - name: Update Gitee 'latest' release
+      env:
+        GITEE_TOKEN: ${{ secrets.GITEE_PERSONAL_ACCESS_TOKEN }}
+        TAG: ${{ github.ref_name }}
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        OWNER="KaUpane"
+        REPO="echo"
+
+        # Delete existing 'latest' release
+        EXISTING=$(curl -s "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases/tags/latest?access_token=${GITEE_TOKEN}")
+        EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
+        if [ -n "$EXISTING_ID" ]; then
+          echo "Deleting existing Gitee 'latest' release..."
+          curl -s -X DELETE "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases/${EXISTING_ID}?access_token=${GITEE_TOKEN}"
+        fi
+
+        # Delete the 'latest' tag if it exists (via API)
+        curl -s -X DELETE "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/git/refs/tags/latest?access_token=${GITEE_TOKEN}" || true
+
+        # Create 'latest' tag pointing to the same commit
+        COMMIT_SHA=$(git rev-parse HEAD)
+        curl -s -X POST "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/git/refs" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"access_token\": \"${GITEE_TOKEN}\",
+            \"ref\": \"refs/tags/latest\",
+            \"sha\": \"${COMMIT_SHA}\"
+          }" || true
+
+        # Create 'latest' release with update artifacts
+        RELEASE_RESPONSE=$(curl -s -X POST "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"access_token\": \"${GITEE_TOKEN}\",
+            \"tag_name\": \"latest\",
+            \"name\": \"Latest (${TAG})\",
+            \"body\": \"This release always points to the latest version. Current: ${TAG}\",
+            \"prerelease\": false
+          }")
+
+        RELEASE_ID=$(echo "$RELEASE_RESPONSE" | jq -r '.id')
+        if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+          echo "Warning: Failed to create Gitee 'latest' release"
+          echo "$RELEASE_RESPONSE"
+          exit 0
+        fi
+
+        # Upload latest.json and update bundles to 'latest' release
+        for FILE in artifacts/*.nsis.zip artifacts/*.AppImage.tar.gz artifacts/latest.json; do
+          [ -f "$FILE" ] || continue
+          FILENAME=$(basename "$FILE")
+          echo "Uploading ${FILENAME} to Gitee 'latest' release..."
+          curl -s -X POST "https://gitee.com/api/v5/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/attach_files" \
+            -H "Content-Type: multipart/form-data" \
+            -F "access_token=${GITEE_TOKEN}" \
+            -F "file=@${FILE}" || echo "Warning: failed to upload ${FILENAME}"
+        done
+
+        echo "Gitee 'latest' release updated successfully!"

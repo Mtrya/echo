@@ -70,6 +70,9 @@ config.yaml
 !config.yaml.example
 completed_exams.json
 
+# Signing keys
+keys/
+
 # Tauri
 frontend/src-tauri/target/
 frontend/src-tauri/binaries/
