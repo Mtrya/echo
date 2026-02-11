@@ -201,6 +201,7 @@ jobs:
           -d "{
             \"access_token\": \"${GITEE_TOKEN}\",
             \"tag_name\": \"${TAG}\",
+            \"target_commitish\": \"main\",
             \"name\": \"Echo ${TAG}\",
             \"body\": \"Automated release for ${TAG}. Download the installer for your platform below.\",
             \"prerelease\": false
@@ -262,6 +263,7 @@ jobs:
           -d "{
             \"access_token\": \"${GITEE_TOKEN}\",
             \"tag_name\": \"latest\",
+            \"target_commitish\": \"main\",
             \"name\": \"Latest (${TAG})\",
             \"body\": \"This release always points to the latest version. Current: ${TAG}\",
             \"prerelease\": false
